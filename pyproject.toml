@@ -1,0 +1,12 @@
+[project]
+name = "call-me-maybe"
+version = "0.1.0"
+description = "Bridge natural language and deterministic execution through constrained decoding and function calling."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "flake8>=7.3.0",
+    "mypy>=2.1.0",
+    "numpy>=2.5.0",
+    "pydantic>=2.13.4",
+]
