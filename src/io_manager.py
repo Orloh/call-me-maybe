@@ -8,7 +8,7 @@ from src.schema import FunctionDefinition, PromptItem
 class SchemaValidationError(Exception):
     pass
 
-class FunctionFileNotFoundError(Exception):
+class InputFileNotFoundError(Exception):
     pass
 
 class JSONParsingError(Exception):
@@ -27,7 +27,7 @@ def load_function_definitions(filepath: Path) -> list[FunctionDefinition]:
             data = json.load(file)
 
     except FileNotFoundError as error:
-        raise FunctionFileNotFoundError(f"File not found: {filepath}") from error
+        raise InputFileNotFoundError(f"File not found: {filepath}") from error
 
     except PermissionError as error:
         raise PermissionDeniedError(f"Permission denied accessing: {filepath}") from error
@@ -64,7 +64,7 @@ def load_prompts(filepath: Path) -> list[PromptItem]:
             data = json.load(file)
 
     except FileNotFoundError as error:
-        raise FunctionFileNotFoundError(f"File not found: {filepath}") from error
+        raise InputFileNotFoundError(f"File not found: {filepath}") from error
 
     except PermissionError as error:
         raise PermissionDeniedError(f"Permission denied accessing: {filepath}") from error

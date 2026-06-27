@@ -3,7 +3,7 @@ import os
 import stat
 import pytest
 from pathlib import Path
-from src.io_manager import JSONParsingError, SchemaValidationError, FunctionFileNotFoundError, PermissionDeniedError
+from src.io_manager import JSONParsingError, SchemaValidationError, InputFileNotFoundError, PermissionDeniedError
 from src.io_manager import load_function_definitions, load_prompts
 from src.schema import FunctionDefinition, PromptItem
 
@@ -79,7 +79,7 @@ def test_load_function_definitions_success(tmp_path: Path) -> None:
 def test_load_function_definitions_file_not_found() -> None:
     """Test that a non-existing filepath raises a ConfigFileNotFoundError."""
     fake_path = Path("fake_directory/fake_file.json")
-    with pytest.raises(FunctionFileNotFoundError) as exc_info:
+    with pytest.raises(InputFileNotFoundError) as exc_info:
         result = load_function_definitions(fake_path)
 
     print(exc_info.value)
@@ -159,7 +159,7 @@ def test_load_prompts_success(tmp_path: Path) -> None:
 def test_load_prompts_file_not_found() -> None:
     """Test that a non-existing filepath raises a FunctionFileNotFoundError."""
     fake_path = Path("fake_directory/fake_prompts.json")
-    with pytest.raises(FunctionFileNotFoundError):
+    with pytest.raises(InputFileNotFoundError):
         load_prompts(fake_path)
 
 
