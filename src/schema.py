@@ -14,3 +14,9 @@ class FunctionDefinition(BaseModel):
     description: str
     parameters: dict[str, ParameterField] 
     returns: ParameterField
+
+class PromptItem(BaseModel):
+    """Represents a single natural language prompt from the input file."""
+    model_config = ConfigDict(extra='forbid')
+
+    prompt: str
