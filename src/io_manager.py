@@ -2,7 +2,7 @@ import json
 import logging
 from pathlib import Path
 from pydantic import ValidationError
-from src.schema import FunctionDefinition, PromptItem
+from src.schema import FunctionCallResult, FunctionDefinition, PromptItem
 
 
 class SchemaValidationError(Exception):
@@ -92,3 +92,27 @@ def load_prompts(filepath: Path) -> list[PromptItem]:
                     ) from error
     
     return validated_prompts
+
+
+def write_output(results: list[FunctionCallResult], filepath: Path) -> None:
+    """
+    Serializes a list of LLM function call results to a strictly fromatted JSON file
+    """
+    serialized_data = [result.model_dump() for result in results]
+
+    try:
+        filepath.parent.mkdir(parents=True, exist_ok=True)
+
+    except PermissionError as error:
+        raise PermissionDeniedError(f"Permission denied creating directories for {filepath}") from error
+
+    try:
+        with open(filepath, "w", encoding="utf-8") as file:
+            json.dump(serialized_data, file, indent=4)
+
+    except PermissionError as error:
+        raise PermissionDeniedError(f"Permission denied writing to: {filepath}") from error
+    
+    except Exception as error:
+        logger.exception(f"An unexpected error ocurred while writing to {filepath}")
+        raise Exception(f"Failed to write output: {error}") from error
