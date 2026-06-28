@@ -4,8 +4,8 @@ import stat
 import pytest
 from pathlib import Path
 from src.io_manager import JSONParsingError, SchemaValidationError, InputFileNotFoundError, PermissionDeniedError
-from src.io_manager import load_function_definitions, load_prompts
-from src.schema import FunctionDefinition, PromptItem
+from src.io_manager import load_function_definitions, load_prompts, write_output
+from src.schema import FunctionDefinition, PromptItem, FunctionCallResult
 
 
 VALID_MOCK_FUNCTIONS = [
@@ -212,6 +212,65 @@ def test_load_prompts_permission_denied(tmp_path: Path) -> None:
     try:
         with pytest.raises(PermissionDeniedError) as exc_info:
             load_prompts(test_file)
+
+        assert "Permission denied" in str(exc_info.value)
+
+    finally:
+        os.chmod(test_file, stat.S_IRUSR | stat.S_IWUSR)
+
+
+VALID_MOCK_RESULTS = [
+    FunctionCallResult(
+        prompt="What is the sum of 2 and 3?",
+        name="fn_add_numbers",
+        parameters={"a":2, "b": 3}
+    ),
+    FunctionCallResult(
+        prompt="Greet Shrek",
+        name="fn_greet",
+        parameters={"name": "Shrek"}
+    )
+]
+
+
+def test_write_output_success(tmp_path: Path) -> None:
+    """Test that a  list of FunctionCallREsult is correctly serialized to JSON."""
+    test_file = tmp_path / "output_results.json"
+
+    write_output(VALID_MOCK_RESULTS, test_file)
+
+    with open(test_file, "r", encoding="utf-8") as file:
+        data = json.load(file)
+
+    assert len(data) == 2
+    assert data[0]["name"] == "fn_add_numbers"
+    assert data[0]["parameters"]["a"] == 2
+    assert data[0]["parameters"]["b"] == 3
+    assert data[1]["name"] == "fn_greet"
+    assert data[1]["prompt"] == "Greet Shrek"
+
+
+def test_write_output_creates_directory(tmp_path: Path) -> None:
+    """Test that write_ouput automatically creates parent directories if they are missing."""
+    nested_file = tmp_path / "data" / "output" / "results.json"
+
+    write_output(VALID_MOCK_RESULTS, nested_file)
+
+    assert nested_file.exists()
+
+
+def test_write_output_permission_denied(tmp_path: Path) -> None:
+    """Test that writing to a locked/read-only file raises a PermissionDeniedError"""
+    test_file = tmp_path / "readonly_output.json"
+
+    test_file.touch()
+
+    os.chmod(test_file, stat.S_IRUSR)
+
+    try:
+        with pytest.raises(PermissionDeniedError) as exc_info:
+            write_output(VALID_MOCK_RESULTS, test_file)
+
 
         assert "Permission denied" in str(exc_info.value)
 
