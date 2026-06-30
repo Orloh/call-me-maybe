@@ -126,3 +126,38 @@ def test_string_fsm_rejects_raw_newlines():
     fsm.advance('"')
     
     assert fsm.advance('\n') is False
+
+
+def test_exact_match_fsm_booleans():
+    fsm = ExactMatchFSM(["true", "false"])
+
+    assert fsm.allowed_characters() == {"t", "f"}
+    
+    assert fsm.advance("t") is True
+    assert fsm.allowed_characters() == {"r"}
+    assert fsm.advance("r") is True
+    assert fsm.advance("u") is True
+    assert fsm.advance("e") is True
+    
+    assert fsm.is_terminal() is True
+    
+    assert fsm.advance("x") is False
+
+
+def test_exact_match_fsm_overlapping_enums():
+    fsm = ExactMatchFSM(['"add"', '"add_numbers"'])
+    
+    assert fsm.advance('"') is True
+    assert fsm.advance('a') is True
+    assert fsm.advance('d') is True
+    assert fsm.advance('d') is True
+    
+    assert fsm.allowed_characters() == {'"', '_'}
+    
+    assert fsm.advance('"') is True
+    assert fsm.is_terminal() is True
+
+def test_exact_match_fsm_rejects_invalid_start():
+    fsm = ExactMatchFSM(["null"])
+    assert fsm.advance("f") is False
+    assert fsm.is_terminal() is False
