@@ -95,3 +95,66 @@ class NumberFSM(BaseFSM):
 
     def is_terminal(self) -> bool:
         return self.state == NumberState.TERMINAL
+
+
+class StringState(Enum):
+    EXPECTING_OPEN_QUOTE = auto()
+    INSIDE_STRING = auto()
+    ESCAPE_SEQUENCE = auto()
+    TERMINAL = auto()
+
+class StringLiteralFSM(BaseFSM):
+    """
+    Validates JSON string literals character-by-character.
+    Strictly enforces opening/closing quotes and handles valid JSON escape sequences.
+    """
+    QUOTE = '"'
+    ESCAPE = '\\'
+    VALID_ESCAPES = set('"\\/bfnrtu')
+    ILLEGAL_RAW_CHARS = set(chr(i) for i in range(32))
+    
+    def _initial_state(self) -> Enum:
+        return StringState.EXPECTING_OPEN_QUOTE
+
+    def advance(self, char: str) -> bool:
+        if self.state == StringState.EXPECTING_OPEN_QUOTE:
+            if char == self.QUOTE:
+                self.state = StringState.INSIDE_STRING
+                return True
+            return False
+
+        elif self.state == StringState.INSIDE_STRING:
+            if char == self.ESCAPE:
+                self.state = StringState.ESCAPE_SEQUENCE
+                return True
+            elif char == self.QUOTE:
+                self.state = StringState.TERMINAL
+                return True
+            elif char in self.ILLEGAL_RAW_CHARS:
+                return False
+            else:
+                return True
+
+        elif self.state == StringState.ESCAPE_SEQUENCE:
+            if char in self.VALID_ESCAPES:
+                self.state = StringState.INSIDE_STRING
+                return True
+            return False
+
+        return False
+
+    def allowed_characters(self) -> set[str]:
+        if self.state == StringState.EXPECTING_OPEN_QUOTE:
+            return {self.QUOTE}
+
+        elif self.state == StringState.INSIDE_STRING:
+            allowed = set(string.printable) - self.ILLEGAL_RAW_CHARS
+            return allowed
+
+        elif self.state == StringState.ESCAPE_SEQUENCE:
+            return self.VALID_ESCAPES
+
+        return set()
+
+    def is_terminal(self) -> bool:
+        return self.state == StringState.TERMINAL
