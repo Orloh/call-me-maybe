@@ -1,9 +1,11 @@
-from .primitives import BaseFSM, NumberFSM, NumberState, StringLiteralFSM, StringState
+from .primitives import BaseFSM, NumberFSM, NumberState, StringLiteralFSM, StringState, ExactMatchFSM, ExactMatchState
 
 __all__ = [
     "BaseFSM",
     "NumberFSM",
     "NumberState",
     "StringLiteralFSM",
-    "StringState"
+    "StringState",
+    "ExactMatchFSM",
+    "ExactMatchState"
 ]
