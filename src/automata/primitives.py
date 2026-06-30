@@ -158,3 +158,60 @@ class StringLiteralFSM(BaseFSM):
 
     def is_terminal(self) -> bool:
         return self.state == StringState.TERMINAL
+
+    
+class ExactMatchState(Enum):
+    MATCHING = auto()
+    TERMINAL = auto()
+
+
+class ExactMatchFSM(BaseFSM):
+    """
+    Validates exact string matches character-by-character.
+    Dynamically tracks valid candidates, making it perfect for
+    booleans ('true', 'false'), nulls ('null') and schema Enums.
+    """
+
+    def __init__(self, valid_strings: str | list[str]) -> None:
+        if not valid_strings:
+            raise ValueError("ExactMatchFSM require at least one valid string.")
+
+        self.active_candidates = valid_strings
+        self.current_index = 0
+        super().__init__()
+
+    def _initial_state(self) -> Enum:
+       return ExactMatchState.MATCHING
+
+    def advance(self, char: str) -> bool:
+        if self.state == ExactMatchState.TERMINAL:
+            return False
+
+        valid_next = [
+            candidate for candidate in self.active_candidates
+            if self.current_index < len(candidate) and candidate[self.current_index] == char
+        ]
+
+        if not valid_next:
+            return False
+
+        self.active_candidates = valid_next
+        self.current_index += 1
+
+        if any(self.current_index == len(candidate) for candidate in self.active_candidates):
+            self.state = ExactMatchState.TERMINAL
+
+        return True
+
+    def allowed_characters(self) -> set[str]:
+        if self.state == ExactMatchState.TERMINAL:
+            return set()
+
+        return {
+            candidate[self.current_index]
+            for candidate in self.active_candidates
+            if self.current_index < len(candidate)
+        }
+
+    def is_terminal(self) -> bool:
+        return self.state == ExactMatchState.TERMINAL
