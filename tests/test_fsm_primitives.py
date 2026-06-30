@@ -57,6 +57,7 @@ def test_number_fsm_rejects_multiple_decimals():
     assert fsm.state == NumberState.FRACTIONAL_PART
     assert fsm.advance('.') is False
 
+
 def test_number_fsm_allowed_characters_pruning():
     """
     Verifies that the FSM correctly reports allowed characters 
@@ -81,3 +82,47 @@ def test_number_fsm_allowed_characters_pruning():
     assert '7' in allowed_frac
     assert ',' in allowed_frac
     assert '.' not in allowed_frac
+
+
+def test_string_fsm_valid_simple_string():
+    fsm = StringLiteralFSM()
+    
+    assert fsm.state == StringState.EXPECTING_OPEN_QUOTE
+
+    assert fsm.advance("a") is False
+    
+    assert fsm.advance('"') is True
+    assert fsm.state == StringState.INSIDE_STRING
+
+    assert fsm.advance("h") is True
+    assert fsm.advance("i") is True
+
+    assert fsm.advance('"') is True
+    assert fsm.is_terminal() is True
+
+    assert fsm.state == StringState.TERMINAL
+
+
+def test_string_fsm_escape_sequence():
+    fsm = StringLiteralFSM()
+    fsm.advance('"')
+    
+    assert fsm.advance('\\') is True
+    assert fsm.state == StringState.ESCAPE_SEQUENCE
+    
+    assert fsm.advance('x') is False
+    
+    assert fsm.advance('"') is True
+    assert fsm.state == StringState.INSIDE_STRING
+    
+    assert fsm.is_terminal() is False
+    
+    assert fsm.advance('"') is True
+    assert fsm.is_terminal() is True
+
+
+def test_string_fsm_rejects_raw_newlines():
+    fsm = StringLiteralFSM()
+    fsm.advance('"')
+    
+    assert fsm.advance('\n') is False
