@@ -1,12 +1,15 @@
-from typing import Any
+from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict
+
+
+AllowedTypes = Literal["string", "number", "integer", "float", "boolean", "null"]
 
 
 class ParameterField(BaseModel):
     """Represents the type definition of a specific parameter."""
     model_config = ConfigDict(extra='forbid')
 
-    type: str
+    type: AllowedTypes
 
 
 class FunctionDefinition(BaseModel):
