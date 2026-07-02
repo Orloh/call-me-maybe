@@ -1,5 +1,11 @@
 import pytest
-from src.automata import *
+from src.automata import (
+    NumberFSM,
+    ExactMatchFSM,
+    StringLiteralFSM,
+    NumberState,
+    StringState
+)
 
 
 def test_number_fsm_valid_integer():
