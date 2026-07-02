@@ -1,4 +1,5 @@
 from .primitives import BaseFSM, NumberFSM, NumberState, StringLiteralFSM, StringState, ExactMatchFSM, ExactMatchState
+from .compiler import SchemaCompiler, UnsupportedSchemaTypeError
 
 __all__ = [
     "BaseFSM",
@@ -7,5 +8,7 @@ __all__ = [
     "StringLiteralFSM",
     "StringState",
     "ExactMatchFSM",
-    "ExactMatchState"
+    "ExactMatchState",
+    "SchemaCompiler",
+    "UnsupportedSchemaTypeError"
 ]
