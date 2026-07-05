@@ -1,5 +1,6 @@
 from .primitives import BaseFSM, NumberFSM, NumberState, StringLiteralFSM, StringState, ExactMatchFSM, ExactMatchState
-from .compiler import SchemaCompiler, UnsupportedSchemaTypeError
+from .compiler import SchemaCompiler, UnsupportedSchemaTypeError, CompiledSchema
+from .pda import PDAState, JSONPushdownAutomaton, Scope
 
 __all__ = [
     "BaseFSM",
@@ -10,5 +11,9 @@ __all__ = [
     "ExactMatchFSM",
     "ExactMatchState",
     "SchemaCompiler",
-    "UnsupportedSchemaTypeError"
+    "CompiledSchema",
+    "UnsupportedSchemaTypeError",
+    "PDAState",
+    "JSONPushdownAutomaton",
+    "Scope"
 ]

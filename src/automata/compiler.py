@@ -1,6 +1,8 @@
-from typing import Callable, Any
+from typing import Callable 
 from .primitives import BaseFSM, NumberFSM, StringLiteralFSM, ExactMatchFSM
 from src.schema import FunctionDefinition
+
+type CompiledSchema = dict[str, Callable[[], BaseFSM]] 
 
 class UnsupportedSchemaTypeError(Exception):
     """
@@ -15,12 +17,12 @@ class SchemaCompiler:
     """
 
     @classmethod
-    def compile_tools(cls, tools: list[FunctionDefinition]) -> dict[str, Callable[[], BaseFSM]]:
+    def compile_tools(cls, tools: list[FunctionDefinition]) -> CompiledSchema:
         """
         Parses a list of FunctionDefinitions and creates a universal
         routing dictionary mappin JSON keys to FSM generators.
         """
-        routing_table: dict[str, Callable[[], BaseFSM]] = {}
+        routing_table: CompiledSchema = {}
         valid_function_names: list[str] = []
 
         for tool in tools:
