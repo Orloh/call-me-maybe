@@ -94,19 +94,23 @@ def test_string_fsm_valid_simple_string():
     fsm = StringLiteralFSM()
     
     assert fsm.state == StringState.EXPECTING_OPEN_QUOTE
+    assert fsm.parsed_value == ""
 
     assert fsm.advance("a") is False
     
     assert fsm.advance('"') is True
     assert fsm.state == StringState.INSIDE_STRING
+    assert fsm.parsed_value  == '"'
 
     assert fsm.advance("h") is True
     assert fsm.advance("i") is True
+    assert fsm.parsed_value == '"hi'
 
     assert fsm.advance('"') is True
-    assert fsm.is_terminal() is True
-
     assert fsm.state == StringState.TERMINAL
+    assert fsm.is_terminal() is True
+    assert fsm.parsed_value == '"hi"'
+
 
 
 def test_string_fsm_escape_sequence():
@@ -115,16 +119,19 @@ def test_string_fsm_escape_sequence():
     
     assert fsm.advance('\\') is True
     assert fsm.state == StringState.ESCAPE_SEQUENCE
+    assert fsm.parsed_value == '"\\'
     
     assert fsm.advance('x') is False
     
     assert fsm.advance('"') is True
     assert fsm.state == StringState.INSIDE_STRING
+    assert fsm.parsed_value == '"\\"'
     
     assert fsm.is_terminal() is False
     
     assert fsm.advance('"') is True
     assert fsm.is_terminal() is True
+    assert fsm.parsed_value == '"\\""'
 
 
 def test_string_fsm_rejects_raw_newlines():
