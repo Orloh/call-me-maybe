@@ -112,6 +112,10 @@ class StringLiteralFSM(BaseFSM):
     ESCAPE = '\\'
     VALID_ESCAPES = set('"\\/bfnrtu')
     ILLEGAL_RAW_CHARS = set(chr(i) for i in range(32))
+
+    def __init__(self):
+        super().__init__()
+        self.parsed_value = ""
     
     def _initial_state(self) -> Enum:
         return StringState.EXPECTING_OPEN_QUOTE
@@ -120,24 +124,29 @@ class StringLiteralFSM(BaseFSM):
         if self.state == StringState.EXPECTING_OPEN_QUOTE:
             if char == self.QUOTE:
                 self.state = StringState.INSIDE_STRING
+                self.parsed_value += char
                 return True
             return False
 
         elif self.state == StringState.INSIDE_STRING:
             if char == self.ESCAPE:
                 self.state = StringState.ESCAPE_SEQUENCE
+                self.parsed_value += char
                 return True
             elif char == self.QUOTE:
                 self.state = StringState.TERMINAL
+                self.parsed_value += char
                 return True
             elif char in self.ILLEGAL_RAW_CHARS:
                 return False
             else:
+                self.parsed_value += char
                 return True
 
         elif self.state == StringState.ESCAPE_SEQUENCE:
             if char in self.VALID_ESCAPES:
                 self.state = StringState.INSIDE_STRING
+                self.parsed_value += char
                 return True
             return False
 
