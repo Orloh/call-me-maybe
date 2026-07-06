@@ -100,6 +100,14 @@ class JSONPushdownAutomaton:
             case _:
                 return False
 
+    def _on_object_start(self, char: str) -> bool:
+        """Handles the start of a JSON object and appending it to the LIFO stack"""
+        if char == "{":
+            self.stack.append(Scope.OBJECT)
+            self.state = PDAState.EXPECTING_KEY
+            return True
+        return False
+
     def _on_key(self: char: str) -> bool:
         """Handles the start of JSON key."""
         if char == '"':
