@@ -99,6 +99,15 @@ class JSONPushdownAutomaton:
 
             case _:
                 return False
+
+    def _on_key(self: char: str) -> bool:
+        """Handles the start of JSON key."""
+        if char == '"':
+            self.active_fsm = StringLiteralFSM()
+            self.active_fsm .advance('"')
+            self.state = PDAState.EXPECTING_COLON
+            return True
+        return False
         
     def allowed_characters(self) -> frozenset[str] | set[str]:
         """
