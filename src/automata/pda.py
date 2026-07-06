@@ -123,6 +123,33 @@ class JSONPushdownAutomaton:
             self.state = PDAState.EXPECTING_VALUE
             return True
         return False
+
+    def _on_value(self, char: str) -> bool:
+        """
+        Routes the value generation based on the current key.
+        Handles nested 'parameters' object structurally, and delegates
+        flat values to their respecctive FSMs based on the CompiledSchema.
+        """
+        if self.current_key == "parameters":
+            if char == '{':
+                self.stack.append(Scope.OBJECT)
+                self.state = PDAState.EXPECTING_KEY
+                return True
+            return False
+
+        try:
+            if self.current_key == "prompt":
+                self.active_fsm = StringLiteralFSM()
+            else:
+                fsm_factory = self.schema[self.current_key]
+                self.active_fsm = fsm_factory()
+
+            self.state = PDAState.EXPECTING_COMMA_OR_END
+
+            return self.active_fsm.advance(char)
+
+        except KeyError:
+            return False
         
     def allowed_characters(self) -> frozenset[str] | set[str]:
         """
