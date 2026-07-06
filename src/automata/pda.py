@@ -63,7 +63,22 @@ class JSONPushdownAutomaton:
         return self._handle_structural_input(char)
 
     def _handle_fsm_input(self, char: str) -> bool:
+        if not self.active_fsm:
+            return False
+
+        if self.active_fsm.advance(char):
+            return True
+
+        if self.active_fsm.is_terminal():
+            if self.state == PDAState.EXPECTING_COLON and isinstance(self.active_fsm, StringLiteralFSM):
+                self.current_key = self.active_fsm.parsed_value.strip('"')
+
+            self.active_fsm = None
+
+            return self._handle_structural_input(char)
+
         return False
+
 
     def _handle_structural_input(self, char: str) -> bool:
         return False
