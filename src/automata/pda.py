@@ -150,6 +150,28 @@ class JSONPushdownAutomaton:
 
         except KeyError:
             return False
+
+    def _on_comma_or_end(self, char: str) -> bool:
+        """Handles structural continuation (,) or scope closures (}, ])."""
+        if char == ',':
+            if char == ',':
+                if self.stack[-1] == Scope.OBJECT:
+                    self.state = PDAState.EXPECTING_KEY
+                elif self.stack[-1] == Scope.ARRAY:
+                    self.state = PDAState.EXPECTING_VALUE
+            return True
+
+        elif char == '}' and self.stack[-1] == Scope.OBJECT:
+            self.stack.pop()
+            self.state = PDAState.EXPECTING_COMMA_OR_END if self.stack else PDAState.TERMINAL
+            return True
+        
+        elif char == ']' and self.stack[-1] == Scope.ARRAY:
+            self.stack.pop()
+            self.state = PDAState.EXPECTING_COMMA_OR_END if self.stack else PDAState.TERMINAL
+            return True
+
+        return False
         
     def allowed_characters(self) -> frozenset[str] | set[str]:
         """
