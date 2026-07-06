@@ -81,7 +81,24 @@ class JSONPushdownAutomaton:
 
 
     def _handle_structural_input(self, char: str) -> bool:
-        return False
+        match self.state:
+            case PDAState.EXPECTING_OBJECT_START: 
+                return self._on_object_start(char)
+
+            case PDAState.EXPECTING_KEY:          
+                return self._on_key(char)
+
+            case PDAState.EXPECTING_COLON:        
+                return self._on_colon(char)
+
+            case PDAState.EXPECTING_VALUE:
+                return self._on_value(char)
+
+            case PDAState.EXPECTING_COMMA_OR_END:
+                return self._on_comma_or_end(char)
+
+            case _:
+                return False
         
     def allowed_characters(self) -> frozenset[str] | set[str]:
         """
