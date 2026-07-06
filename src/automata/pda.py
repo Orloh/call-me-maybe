@@ -75,7 +75,7 @@ class JSONPushdownAutomaton:
 
             self.active_fsm = None
 
-            return self._handle_structural_input(char)
+            return self.advance(char)
 
         return False
 
