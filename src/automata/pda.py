@@ -43,7 +43,7 @@ class JSONPushdownAutomaton:
 
     def __init__(self, compiled_schema: CompiledSchema):
         self.stack: list[Scope] = []
-        self.state = PDAState = PDAState.EXPECTING_OBJECT_START
+        self.state =PDAState.EXPECTING_OBJECT_START
         self.active_fsm: BaseFSM | None = None
         self.schema = compiled_schema
         self.current_key: str = ""
@@ -57,7 +57,7 @@ class JSONPushdownAutomaton:
         if self.active_fsm:
             return self._handle_fsm_input(char)
 
-        if char in self.WHITESPACE
+        if char in self.WHITESPACE:
             return True
 
         return self._handle_structural_input(char)
@@ -108,12 +108,19 @@ class JSONPushdownAutomaton:
             return True
         return False
 
-    def _on_key(self: char: str) -> bool:
+    def _on_key(self, char: str) -> bool:
         """Handles the start of JSON key."""
         if char == '"':
             self.active_fsm = StringLiteralFSM()
             self.active_fsm .advance('"')
             self.state = PDAState.EXPECTING_COLON
+            return True
+        return False
+
+    def _on_colon(self, char:str) -> bool:
+        """Handles the colon separationg a key from its value."""
+        if char == ":":
+            self.state = PDAState.EXPECTING_VALUE
             return True
         return False
         
