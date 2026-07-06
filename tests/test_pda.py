@@ -14,6 +14,56 @@ def mock_schema():
         "days": lambda: NumberFSM(),
     }
 
+def test_on_object_start_logic(mock_schema):
+    pda = JSONPushdownAutomaton(mock_schema)
+    pda.state = PDAState.EXPECTING_OBJECT_START
+    
+    assert pda._on_object_start("{") is True
+    assert pda.state == PDAState.EXPECTING_KEY
+    assert pda.stack[-1] == Scope.OBJECT
+    assert pda._on_object_start("x") is False
+
+def test_on_key_logic(mock_schema):
+    pda = JSONPushdownAutomaton(mock_schema)
+    pda.state = PDAState.EXPECTING_KEY
+    
+    assert pda._on_key('"') is True
+    assert pda.state == PDAState.EXPECTING_COLON
+    assert isinstance(pda.active_fsm, StringLiteralFSM)
+    assert pda._on_key('x') is False
+
+def test_on_colon_logic(mock_schema):
+    pda = JSONPushdownAutomaton(mock_schema)
+    pda.state = PDAState.EXPECTING_COLON
+    
+    assert pda._on_colon(':') is True
+    assert pda.state == PDAState.EXPECTING_VALUE
+    assert pda._on_colon('x') is False
+
+def test_on_value_flat_routing(mock_schema):
+    pda = JSONPushdownAutomaton(mock_schema)
+    pda.state = PDAState.EXPECTING_VALUE
+    pda.current_key = "days"
+    
+    # "days" expects a NumberFSM based on mock_schema
+    assert pda._on_value('5') is True
+    assert isinstance(pda.active_fsm, NumberFSM)
+    assert pda.state == PDAState.EXPECTING_COMMA_OR_END
+
+def test_on_comma_or_end_logic(mock_schema):
+    pda = JSONPushdownAutomaton(mock_schema)
+    pda.state = PDAState.EXPECTING_COMMA_OR_END
+    pda.stack.append(Scope.OBJECT)
+    
+    # Test continuing the object with a comma
+    assert pda._on_comma_or_end(',') is True
+    assert pda.state == PDAState.EXPECTING_KEY
+    
+    # Test closing the object with a brace
+    pda.state = PDAState.EXPECTING_COMMA_OR_END
+    assert pda._on_comma_or_end('}') is True
+    assert len(pda.stack) == 0
+    assert pda.state == PDAState.TERMINAL
 def feed_string(pda: JSONPushdownAutomaton, string: str) -> bool:
     """
     Helper function to feed a whole string to the PDA char-by-char.
