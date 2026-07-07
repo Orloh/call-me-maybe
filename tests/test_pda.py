@@ -1,6 +1,6 @@
 import pytest
 
-from src.automata import JSONPushdownAutomaton, PDAState, NumberFSM, StringLiteralFSM, ExactMatchFSM
+from src.automata import JSONPushdownAutomaton, PDAState, Scope, NumberFSM, StringLiteralFSM, ExactMatchFSM
 from src.automata.primitives import BaseFSM
 
 @pytest.fixture
