@@ -35,7 +35,7 @@ class PrefixTrie:
             current_node.token_id = token_id
             self.size += 1
 
-    def build_from_vocabulary(self, vocabulary: dict[str, int]) -> None:
+    def build_from_vocab(self, vocabulary: dict[str, int]) -> None:
         """
         Utility method to ingest a massive dictionary of tokens and IDs all at once.
         """
