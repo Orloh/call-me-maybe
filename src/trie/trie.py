@@ -39,4 +39,6 @@ class PrefixTrie:
         """
         Utility method to ingest a massive dictionary of tokens and IDs all at once.
         """
-        pass
+        for token_str, token_id in vocabulary.items():
+            self.insert(token_str, token_id)
+
