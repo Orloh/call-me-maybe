@@ -61,3 +61,21 @@ class ConstrainedGenerator:
             if vocab_id not in allowed_set:
                 logits[vocab_id] = -math.inf
         return logits
+    
+    def _select_next_token(
+            self,
+            current_tokens: list[int],
+            allowed_ids: list[int]
+    ) -> int:
+        """
+        Selects the next token using Fast-Forwarding if possible,
+        otherwise falls back to masked LLM generation.
+        """
+        if len(allowed_ids) == 1:
+            return allowed_ids[0]
+
+        raw_logits = self.model.get_logits_from_input_ids(current_tokens)
+        masked_logits = self._apply_logits_mask(raw_logits, allowed_ids)
+
+        return max(range(len(masked_logits)), key=lambda i: masked_logits[i])
+
