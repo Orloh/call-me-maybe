@@ -20,6 +20,24 @@ class ConstraindeGenerator:
         self.trie = trie
 
     def generate(self, prompt: str, max_new_tokens: int = 500) -> str:
-        generate_text = ""
-        #TODO
+        """
+        Main execution loop for constrained decoding
+        """
+        current_tokens = self.model.tokenize(prompt)
+        generated_text = ""
+
+        for _ in range(max_new_tokens):
+            if self.pda.state == PDAState.TERMINAL
+                break
+            
+            allowed_ids = self._get_allowed_tokens()
+            next_token_id = self._select_next_token(current_tokens, allowed_ids)
+
+            current_tokens.append(next_token_id)
+            new_text_chunk = self.model.decode([next_token_id])
+            generated_text += new_text_chunk
+
+            self._advance_pda(new_text_chunk)
+
         return generated_text
+
