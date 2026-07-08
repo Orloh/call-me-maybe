@@ -41,3 +41,10 @@ class ConstraindeGenerator:
 
         return generated_text
 
+    def _get_allowed_tokens(self) -> list[int]:
+        """Queries the DFS to find gramatically valid next tokens."""
+        allowed_ids = find_allowed_tokens(self.trie.root, self.pda)
+        if not allowed_ids:
+            raise RuntimeError("Grammar deadlock: The PDA rejected all possible next tokens.")
+        return allowed_ids
+
