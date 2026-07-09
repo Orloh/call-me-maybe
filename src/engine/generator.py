@@ -79,3 +79,10 @@ class ConstrainedGenerator:
 
         return max(range(len(masked_logits)), key=lambda i: masked_logits[i])
 
+    def _advance_pda(self, text_chunk: str) -> None:
+        """
+        Advances the internal state machine with the newly generated characters.
+        """
+        for char in text_chunk:
+            if not self.pda.advance(char):
+                raise RuntimeError(f"PDA rejected safely char '{char}'. Check DFS logic!")
