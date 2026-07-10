@@ -18,7 +18,7 @@ class PrefixTrie:
 
     def insert(self, token_str: str, token_id: int) -> None:
         """
-        Inserts a token string and its corresponding ID into the Trie.
+        Inserts a token string and its correspondint ID into the Trie.
         """
         if not token_str:
             return
@@ -28,7 +28,7 @@ class PrefixTrie:
         for char in token_str:
             if char not in current_node.children:
                 current_node.children[char] = TrieNode()
-            
+
             current_node = current_node.children[char]
 
         if current_node.token_id is None:
@@ -37,8 +37,8 @@ class PrefixTrie:
 
     def build_from_vocab(self, vocabulary: dict[str, int]) -> None:
         """
-        Utility method to ingest a massive dictionary of tokens and IDs all at once.
+        Utility method to ingest a massive dictionary
+        of tokens in IDs all at once.
         """
         for token_str, token_id in vocabulary.items():
             self.insert(token_str, token_id)
-
