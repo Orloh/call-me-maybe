@@ -1,5 +1,5 @@
 import copy
-from src.trie.trie import TrieNode
+from src.trie import TrieNode
 from src.automata import JSONPushdownAutomaton
 
 def find_allowed_tokens(node: TrieNode, pda: JSONPushdownAutomaton) -> list[int]:

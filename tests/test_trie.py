@@ -1,5 +1,5 @@
 import pytest
-from src.trie.trie import PrefixTrie
+from src.trie import PrefixTrie
 
 def test_trie_basic_insertion():
     """

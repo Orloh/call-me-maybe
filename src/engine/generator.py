@@ -1,7 +1,7 @@
 import math
 from src.automata.pda import JSONPushdownAutomaton, PDAState
-from src.trie.trie import PrefixTrie
-from src.dfs.dfs import find_allowed_tokens
+from src.trie import PrefixTrie
+from src.dfs import find_allowed_tokens
 from llm_sdk import Small_LLM_Model
 
 class ConstrainedGenerator:

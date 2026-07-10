@@ -1,7 +1,7 @@
 import pytest
-from src.trie.trie import PrefixTrie
+from src.trie import PrefixTrie
 from src.automata import JSONPushdownAutomaton, ExactMatchFSM
-from src.dfs.dfs import find_allowed_tokens
+from src.dfs import find_allowed_tokens
 
 @pytest.fixture
 def mock_schema():
