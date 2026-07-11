@@ -10,51 +10,44 @@ class UnsupportedSchemaTypeError(Exception):
     """
     pass
 
-
-class SchemaCompiler:
+def compile_tools(cls, tools: list[FunctionDefinition]) -> CompiledSchema:
     """
-    Translates a list of FunctionDefinitions into a high-speed FSM routing table.
+    Parses a list of FunctionDefinitions and creates a universal
+    routing dictionary mappin JSON keys to FSM generators.
     """
+    routing_table: CompiledSchema = {}
+    valid_function_names: list[str] = []
 
-    @classmethod
-    def compile_tools(cls, tools: list[FunctionDefinition]) -> CompiledSchema:
-        """
-        Parses a list of FunctionDefinitions and creates a universal
-        routing dictionary mappin JSON keys to FSM generators.
-        """
-        routing_table: CompiledSchema = {}
-        valid_function_names: list[str] = []
+    for tool in tools:
+        valid_function_names.append(f'"{tool.name}"')
+        
+        for param_key,  param_field in tool.parameters.items():
+            routing_table[param_key] = cls._map_type_to_fsm(param_field.type)
 
-        for tool in tools:
-            valid_function_names.append(f'"{tool.name}"')
-            
-            for param_key,  param_field in tool.parameters.items():
-                routing_table[param_key] = cls._map_type_to_fsm(param_field.type)
+    if valid_function_names:
+        routing_table["name"] = lambda names=valid_function_names: ExactMatchFSM(names)
 
-        if valid_function_names:
-            routing_table["name"] = lambda names=valid_function_names: ExactMatchFSM(names)
+    return routing_table
 
-        return routing_table
+def _map_type_to_fsm(data_type: str) -> Callable[[], BaseFSM]:
+    """
+    Translates specific ParameterField string types into lambda factories.
+    """
+    match data_type.lower():
+        case "string":
+            return lambda: StringLiteralFSM()
 
-    @staticmethod
-    def _map_type_to_fsm(data_type: str) -> Callable[[], BaseFSM]:
-        """
-        Translates specific ParameterField string types into lambda factories.
-        """
-        match data_type.lower():
-            case "string":
-                return lambda: StringLiteralFSM()
+        case "number" | "integer" | "float":
+            return lambda: NumberFSM()
 
-            case "number" | "integer" | "float":
-                return lambda: NumberFSM()
+        case "boolean":
+            return lambda: ExactMatchFSM(["true", "false"])
 
-            case "boolean":
-                return lambda: ExactMatchFSM(["true", "false"])
+        case "null":
+            return lambda: ExactMatchFSM(["null"])
 
-            case "null":
-                return lambda: ExactMatchFSM(["null"])
-
-            case _:
-                raise UnsupportedSchemaTypeError(
-                    f"Fatal internal error: Pydantic allowed an unsupported type '{data_type}'."
-                ) 
+        case _:
+            raise UnsupportedSchemaTypeError(
+                "Fatal internal error: "
+                f"Pydantic allowed an unsupported type '{data_type}'."
+            ) 
