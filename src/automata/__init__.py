@@ -8,7 +8,7 @@ from .primitives import (
     ExactMatchState
 )
 from .compiler import (
-    SchemaCompiler,
+    compile_tools,
     UnsupportedSchemaTypeError,
     CompiledSchema)
 from .pda import PDAState, JSONPushdownAutomaton, Scope
