@@ -25,3 +25,24 @@ class FunctionCallingPipeline:
         self.router_table = {
             "name": self.extractor_table["name"]
         }
+    
+    def process_prompt(
+        self,
+        user_prompt: str,
+        available_functions: list[FunctionDefinition]
+    ) -> FunctionCallResult:
+        router_prompt = (
+            PromptBuilder
+            .build_function_name_prompt(user_prompt, available_functions)
+        )
+
+        router_pda = JSONPushdownAutomaton(self.router_table)
+        router_gen = ConstrainedGenerator(self.model, router_pda, self.trie)
+
+        router_json_str = router_gen.generate(router_prompt, max_new_tokens=50)
+        selected_func_name = json.loads(router_json_str).get("name")
+
+        target_function = next(
+            (func for func in available_functions 
+             if func.name == selected_func_name),
+            None)
