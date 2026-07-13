@@ -47,6 +47,11 @@ class FunctionCallingPipeline:
              if func.name == selected_func_name),
             None)
 
+        if not target_function:
+            raise ValueError(
+                f"LLM hallucinated function: {selected_func_name}"
+            )
+
         extractor_prompt = PromptBuilder.build_parameters_prompt(
             user_prompt,
             target_function
@@ -63,4 +68,3 @@ class FunctionCallingPipeline:
             name=target_function.name,
             parameters=extracted_parameters
         )
-        
