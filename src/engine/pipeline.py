@@ -46,3 +46,21 @@ class FunctionCallingPipeline:
             (func for func in available_functions 
              if func.name == selected_func_name),
             None)
+
+        extractor_prompt = PromptBuilder.build_parameters_prompt(
+            user_prompt,
+            target_function
+        )
+
+        extractor_pda = JSONPushdownAutomaton(self.extractor_table)
+        extractor_gen = ConstrainedGenerator(self.model, extractor_pda, self.trie)
+
+        extractor_json_str = extractor_gen.generate(extractor_prompt, max_new_tokens=300)
+        extracted_parameters = json.loads(extractor_json_str)
+
+        return FunctionCallResult(
+            prompt=user_prompt,
+            name=target_function.name,
+            parameters=extracted_parameters
+        )
+        
