@@ -41,4 +41,19 @@ class PromptBuilder:
         """
         Formats the prompt to extract the specific parameter for the funtion.
         """
-        pass
+        schema_dict = {
+            key: field.model_dump()
+            for key, field in target_function.parameters.items()
+        }
+        schema_str = json.dumps(schema_dict, ident = 2)
+
+        return(
+            "You are an expert data extraction assitant.\n"
+            "Extract the required parameters from the user's request based on the schema.\n"
+            f"Target Function: {target_function.name}\n"
+            f"Function Description: {target_function.description}\n"
+            f"Parameters Schema:\n{schema_str}\n\n"
+            f"User Request: \"{user_prompt}\"\n\n"
+            "Output exatly one JSON object containing the extracted parameters.\n"
+            "JSON Output:\n"
+        )
