@@ -2,7 +2,7 @@ import pytest
 import json
 from unittest.mock import MagicMock, patch, mock_open
 
-from src.engine.bootstrap import initialize_system_dependencies
+from src.engine import initialize_system_dependencies
 
 def test_initialize_system_dependencies_success():
     """
@@ -13,14 +13,16 @@ def test_initialize_system_dependencies_success():
     dummy_vocab = {"hello": 0, "world": 1, "!": 2}
     dummy_vocab_json = json.dumps(dummy_vocab)
     fake_vocab_path = "/fake/path/to/vocab.json"
+        
+    with (
+        patch("src.engine.bootstrap.Small_LLM_Model") as mock_model_class,
+        patch("src.engine.bootstrap.PrefixTrie") as mock_trie_class,
+        patch("builtins.open", mock_open(read_data=dummy_vocab_json)) as mock_file
+    ):
 
-    with patch("src.engine.bootstrap.Small_LLM_Model") as mock_model_class, \\
-         patch("src.engine.bootstrap.PrefixTrie") as mock_trie_class, \\
-         patch("builtins.open", mock_open(read_data=dummy_vocab_json)) as mock_file:
-         
         mock_model_instance = mock_model_class.return_value
         mock_model_instance.get_path_to_vocab_file.return_value = fake_vocab_path
-        
+
         mock_trie_instance = mock_trie_class.return_value
         mock_trie_instance.size = 3
 
