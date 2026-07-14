@@ -2,10 +2,14 @@ import json
 from src.schema import FunctionDefinition
 
 class PromptBuilder:
-    """
-    Constructs a flat-text completion prompts optimized for raw next-token
-    prediction models, priming themm for constrained JSON generation.
-    """
+    def __init__(self):
+        """
+        Prevents instantiation of utility class.
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__} cannot be instantiated."
+        )
+
     @staticmethod
     def build_function_name_prompt(
         user_prompt: str,
@@ -14,7 +18,20 @@ class PromptBuilder:
         """
         Formats the prompt to determine which funtion the user wants to call.
         """
-        pass
+        function_catalog = ""
+        for func in available_functions:
+            function_catalog = f"- {func.name}: {func.description}\n"
+
+        return(
+            "You are an expert routing assistant.\n"
+            "Determine which function best matches the user's request.\n\n"
+            "Available Functions:\n"
+            f"{function_catalog}\n"
+            f"User Request: \"{user_prompt}\"\n\n"
+            "Output exactly one JSON object witht the key 'name'"
+            "containing the selected function.\n"
+            "JSON Output:\n"
+        )
 
     @staticmethod
     def build_parameters_prompt(
