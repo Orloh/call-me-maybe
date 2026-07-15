@@ -20,7 +20,7 @@ class PromptBuilder:
         """
         function_catalog = ""
         for func in available_functions:
-            function_catalog = f"- {func.name}: {func.description}\n"
+            function_catalog += f"- {func.name}: {func.description}\n"
 
         return(
             "You are an expert routing assistant.\n"
