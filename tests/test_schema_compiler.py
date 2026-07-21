@@ -2,14 +2,15 @@ import pytest
 from src.schema import FunctionDefinition, ParameterField
 from src.automata import SchemaCompiler, NumberFSM, StringLiteralFSM, ExactMatchFSM, UnsupportedSchemaTypeError
 
-def test_schema_compiler_valid_mapping():
+
+def test_compile_extractor_table():
     """
     Proves that the compiler maps Pydantic schema types
-    to their corresponding FSM lambda factories.
+    to their corresponding FSM lambda factories for ONE specific target function.
     """
-    mock_tools = FunctionDefinition(
+    mock_tool = FunctionDefinition(
         name="get_weather",
-        description="Fetches the weather for a given location.",
+        description="Fetches the weather.",
         parameters={
             "location": ParameterField(type="string"),
             "days": ParameterField(type="integer"),
@@ -18,9 +19,10 @@ def test_schema_compiler_valid_mapping():
         returns=ParameterField(type="string")
     )
 
-    routing_table = SchemaCompiler.compile_tools([mock_tools])
+    routing_table = SchemaCompiler.compile_extractor_table(mock_tool)
 
-    assert "name" in routing_table
+    assert "name" not in routing_table
+
     assert "location" in routing_table
     assert "days" in routing_table
     assert "is_metric" in routing_table
@@ -30,24 +32,31 @@ def test_schema_compiler_valid_mapping():
     assert isinstance(routing_table["is_metric"](), ExactMatchFSM)
 
 
-def test_schema_compiler_function_name_enum():
+def test_compile_router_table():
     """
-    Proves that the compiler automatically extracts function names
-    and builds an ExactMatchFSM containig the properly quoted JSON strings.
+    Proves that the compiler builds the router table 
+    strictly containing the ExactMatchFSM for the available function names.
     """
-
     tool_1 = FunctionDefinition(
-        name="fn_add", description="...", parameters={}, returns=ParameterField(type="number")
+        name="fn_add",
+        description=".",
+        parameters={},
+        returns=ParameterField(type="number")
     )
 
     tool_2 = FunctionDefinition(
-        name="fn_subtract", description="...", parameters={}, returns=ParameterField(type="number")
+        name="fn_subtract",
+        description=".",
+        parameters={},
+        returns=ParameterField(type="number")
     )
 
-    routing_table = SchemaCompiler.compile_tools([tool_1, tool_2])
+    routing_table = SchemaCompiler.compile_router_table([tool_1, tool_2])
+
+    assert "name" in routing_table
+    assert len(routing_table) == 1 # ONLY contains 'name'
 
     name_fsm = routing_table["name"]()
-
     assert isinstance(name_fsm, ExactMatchFSM)
     assert '"fn_add"' in name_fsm.active_candidates
     assert '"fn_subtract"' in name_fsm.active_candidates
