@@ -1,4 +1,5 @@
 import pytest
+import torch
 import math
 from unittest.mock import MagicMock, patch, call
 from src.engine import ConstrainedGenerator
@@ -48,23 +49,6 @@ def test_get_allowed_tokens_deadlock_raises_error(mock_find_allowed, mock_genera
         mock_generator._get_allowed_tokens()
 
 
-def test_apply_logits_mask_crushes_disallowed_tokens(mock_generator):
-    """
-    Proves that any token ID not in the allowed list has its probability
-    score mathematically reduced to negative infinity.
-    """
-    raw_logits = [0.5, -1.2, 3.4, 10.0, 0.0]
-    allowed_ids = [1, 3]
-
-    masked_logits = mock_generator._apply_logits_mask(raw_logits, allowed_ids)
-
-    assert masked_logits[1] == -1.2
-    assert masked_logits[3] == 10.0
-
-    assert masked_logits[0] == -math.inf
-    assert masked_logits[2] == -math.inf
-    assert masked_logits[4] == -math.inf
-
 def test_generate_loop_orchestration(mock_generator):
     """
     Proves that the generate loop correctly ties all helper methods togheter,
@@ -72,7 +56,8 @@ def test_generate_loop_orchestration(mock_generator):
     the TERMINAL state.
     """
     prompt = "Make a JSON"
-    mock_generator.model.tokenize.return_value = [100]
+    mock_tensor = torch.tensor([[101, 102, 103]])
+    mock_generator.model.encode.return_value = mock_tensor 
 
     mock_generator._get_allowed_tokens = MagicMock(side_effect=[[1], [2]])
     mock_generator._select_next_token= MagicMock(side_effect=[1, 2])
@@ -91,7 +76,7 @@ def test_generate_loop_orchestration(mock_generator):
 
     assert result == "{}"
 
-    mock_generator.model.tokenize.assert_called_once_with(prompt)
+    mock_generator.model.encode.assert_called_once_with(prompt)
 
     assert mock_generator._get_allowed_tokens.call_count == 2
     assert mock_generator._advance_pda.call_count == 2
@@ -114,10 +99,11 @@ def test_select_next_token_fast_forwards(mock_generator):
     mock_generator.model.get_logits_from_input_ids.assert_not_called()
 
 
-def test_select_next_token_uses_llm_and_mask(mock_generator):
+def test_select_next_token_uses_llm_and_max_selection(mock_generator):
     """
     Proves that with multiple valid choices, the engine queries the LLM,
-    applies the mask, and selects the highest scoring allowed token.
+    and uses the built-in max() function to extract the allowed token
+    with the highest raw logit score.
     """
     current_tokens = [101, 102]
     allowed_ids = [1, 3]
