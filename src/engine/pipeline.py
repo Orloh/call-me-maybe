@@ -21,21 +21,18 @@ class FunctionCallingPipeline:
     ):
         self.model = model
         self.trie = trie
-        self.extractor_table = SchemaCompiler.compile_tools(available_functions)
-        self.router_table = {
-            "name": self.extractor_table["name"]
-        }
+        self.router_table = SchemaCompiler.compile_router_table(available_functions)
     
     def process_prompt(
         self,
         user_prompt: str,
         available_functions: list[FunctionDefinition]
     ) -> FunctionCallResult:
+        # PHASE 1: Function Routing
         router_prompt = (
             PromptBuilder
             .build_function_name_prompt(user_prompt, available_functions)
         )
-
         router_pda = JSONPushdownAutomaton(self.router_table)
         router_gen = ConstrainedGenerator(self.model, router_pda, self.trie)
 
@@ -51,13 +48,15 @@ class FunctionCallingPipeline:
             raise ValueError(
                 f"LLM hallucinated function: {selected_func_name}"
             )
-
+        # PHASE 2: Parameter Extraction
         extractor_prompt = PromptBuilder.build_parameters_prompt(
             user_prompt,
             target_function
         )
 
-        extractor_pda = JSONPushdownAutomaton(self.extractor_table)
+        extractor_table = SchemaCompiler.compile_extractor_table(target_function)
+
+        extractor_pda = JSONPushdownAutomaton(extractor_table)
         extractor_gen = ConstrainedGenerator(self.model, extractor_pda, self.trie)
 
         extractor_json_str = extractor_gen.generate(extractor_prompt, max_new_tokens=300)
