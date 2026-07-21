@@ -23,7 +23,13 @@ class ConstrainedGenerator:
         """
         Main execution loop for constrained decoding
         """
-        current_tokens = self.model.tokenize(prompt)
+        encoded_tensor = self.model.encode(prompt)
+        
+        if encoded_tensor.dim() == 2:
+            current_tokens = encoded_tensor[0].tolist()
+        else:
+            current_tokens = encoded_tensor.tolist()
+
         generated_text = ""
 
         for _ in range(max_new_tokens):
@@ -37,8 +43,11 @@ class ConstrainedGenerator:
             new_text_chunk = self.model.decode([next_token_id])
             generated_text += new_text_chunk
 
+            print(f"'{new_text_chunk}'")
+            
             self._advance_pda(new_text_chunk)
 
+        print(f"{generated_text}")
         return generated_text
 
     def _get_allowed_tokens(self) -> list[int]:
@@ -47,20 +56,6 @@ class ConstrainedGenerator:
         if not allowed_ids:
             raise RuntimeError("Grammar deadlock: The PDA rejected all possible next tokens.")
         return allowed_ids
-    
-    def _apply_logits_mask(
-            self,
-            logits: list[float],
-            allowed_ids: list[int]
-    ) -> list[float]:
-        """
-        Sets the probability of all disallowed tokens to negative infinity.
-        """
-        allowed_set = set(allowed_ids)
-        for vocab_id in range(len(logits)):
-            if vocab_id not in allowed_set:
-                logits[vocab_id] = -math.inf
-        return logits
     
     def _select_next_token(
             self,
@@ -75,9 +70,10 @@ class ConstrainedGenerator:
             return allowed_ids[0]
 
         raw_logits = self.model.get_logits_from_input_ids(current_tokens)
-        masked_logits = self._apply_logits_mask(raw_logits, allowed_ids)
 
-        return max(range(len(masked_logits)), key=lambda i: masked_logits[i])
+        best_token_id = max(allowed_ids, key=lambda vocab_id: raw_logits[vocab_id])
+
+        return best_token_id
 
     def _advance_pda(self, text_chunk: str) -> None:
         """
