@@ -19,6 +19,7 @@ class PromptBuilder:
         Formats the prompt to determine which funtion the user wants to call.
         """
         function_catalog = ""
+        
         for func in available_functions:
             function_catalog += f"- {func.name}: {func.description}\n"
 
@@ -45,7 +46,7 @@ class PromptBuilder:
             key: field.model_dump()
             for key, field in target_function.parameters.items()
         }
-        schema_str = json.dumps(schema_dict, ident = 2)
+        schema_str = json.dumps(schema_dict, indent = 2)
 
         return(
             "You are an expert data extraction assitant.\n"
