@@ -32,3 +32,34 @@ def main() -> None:
     prompt_items = load_prompts(prompts_path)
 
     # Execute pipline
+    logger.info(f"Initializing pipeline with {len(available_functions)}")
+    pipeline = FunctionCallingPipeline(
+        model=model,
+        trie=trie,
+        available_functions=available_functions
+    )
+
+    results = []
+    logger.info(f"Strating generating loop for {len(prompt_items)} prompts...")
+
+    for i, item in enumerate(prompt_items, 1):
+        logger.info(f"Processing [{i}/{len(prompt_items)}]: '{item.prompt[:40]}...'")
+        
+        try:
+            result = pipeline.process_prompt(
+                user_prompt=item.prompt,
+                available_functions=available_functions
+            )
+            results.append(result)
+            logger.info(f"-> Success! Routed to: {result.name}()")
+
+        except Exception as e:
+            logger.error(f"-> Failed on prompt [{i}]: {e}")
+
+    #Save Output using io_manager
+    logger.info(f"Writing {len(results)} successful results to {output_path}...")
+    write_output(results, output_path)
+    logger.info("Pipeline execution complete! 🎉")
+
+if __name__ == "__main__":
+    main()
