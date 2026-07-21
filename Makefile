@@ -26,7 +26,7 @@ install:
 	uv sync --link-mode copy
 
 run: install
-	clear && $(RUN) -m $(SRC)
+	clear && CUDA_VISIBLE_DEVICES="" $(RUN) -m $(SRC)
 
 debug: install
 	@echo "(BGREEN)Running the main script in debug mode...$(RESET)"
