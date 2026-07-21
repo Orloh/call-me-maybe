@@ -1,6 +1,6 @@
 from typing import Callable
 from enum import Enum, auto
-from .primitives import BaseFSM, StringLiteralFSM
+from .primitives import BaseFSM, StringLiteralFSM, ExactMatchFSM
 from .compiler import CompiledSchema
 
 
@@ -36,6 +36,8 @@ class JSONPushdownAutomaton:
     CHAR_ARRAY_START = frozenset("[")
     CHAR_KEY_QUOTE = frozenset('"')
     CHAR_COLON = frozenset(":")
+    CHAR_COMMA = frozenset(",")
+    CHAR_OBJECT_CLOSE = frozenset("}")
     CHARS_OBJECT_NEXT = frozenset({",", "}"})
     CHARS_ARRAY_NEXT = frozenset({",", "]"})
     CHARS_EMPTY = frozenset()
@@ -47,6 +49,7 @@ class JSONPushdownAutomaton:
         self.active_fsm: BaseFSM | None = None
         self.schema = compiled_schema
         self.current_key: str = ""
+        self.remaining_keys: set[str] = set(self.schema.keys())
 
     def advance(self, char: str) -> bool:
         """
@@ -70,11 +73,15 @@ class JSONPushdownAutomaton:
             return True
 
         if self.active_fsm.is_terminal():
-            if self.state == PDAState.EXPECTING_COLON and isinstance(self.active_fsm, StringLiteralFSM):
-                self.current_key = self.active_fsm.parsed_value.strip('"')
+
+            if self.state == PDAState.EXPECTING_COLON and isinstance(self.active_fsm, ExactMatchFSM):
+                matched_quoted_key = self.active_fsm.active_candidates[0]
+                self.current_key = matched_quoted_key.strip('"')
+
+                if self.current_key in self.remaining_keys:
+                    self.remaining_keys.remove(self.current_key)
 
             self.active_fsm = None
-
             return self.advance(char)
 
         return False
@@ -111,7 +118,11 @@ class JSONPushdownAutomaton:
     def _on_key(self, char: str) -> bool:
         """Handles the start of JSON key."""
         if char == '"':
-            self.active_fsm = StringLiteralFSM()
+            if not self.remaining_keys:
+                return False
+
+            valid_quoted_keys = [f'"{k}"' for k in self.remaining_keys]
+            self.active_fsm = ExactMatchFSM(valid_quoted_keys)
             self.active_fsm .advance('"')
             self.state = PDAState.EXPECTING_COLON
             return True
@@ -130,38 +141,30 @@ class JSONPushdownAutomaton:
         Handles nested 'parameters' object structurally, and delegates
         flat values to their respecctive FSMs based on the CompiledSchema.
         """
-        if self.current_key == "parameters":
-            if char == '{':
-                self.stack.append(Scope.OBJECT)
-                self.state = PDAState.EXPECTING_KEY
-                return True
-            return False
-
         try:
-            if self.current_key == "prompt":
-                self.active_fsm = StringLiteralFSM()
-            else:
-                fsm_factory = self.schema[self.current_key]
-                self.active_fsm = fsm_factory()
-
+            fsm_factory = self.schema[self.current_key]
+            self.active_fsm = fsm_factory()
             self.state = PDAState.EXPECTING_COMMA_OR_END
-
             return self.active_fsm.advance(char)
-
+        
         except KeyError:
             return False
 
     def _on_comma_or_end(self, char: str) -> bool:
         """Handles structural continuation (,) or scope closures (}, ])."""
         if char == ',':
-            if char == ',':
-                if self.stack[-1] == Scope.OBJECT:
-                    self.state = PDAState.EXPECTING_KEY
-                elif self.stack[-1] == Scope.ARRAY:
-                    self.state = PDAState.EXPECTING_VALUE
+            if self.stack[-1] == Scope.OBJECT:
+                if not self.remaining_keys:
+                    return False
+                self.state = PDAState.EXPECTING_KEY
+            elif self.stack[-1] == Scope.ARRAY:
+                self.state = PDAState.EXPECTING_VALUE
             return True
 
         elif char == '}' and self.stack[-1] == Scope.OBJECT:
+            if self.remaining_keys:
+                return False
+
             self.stack.pop()
             self.state = PDAState.EXPECTING_COMMA_OR_END if self.stack else PDAState.TERMINAL
             return True
@@ -199,7 +202,11 @@ class JSONPushdownAutomaton:
 
             case PDAState.EXPECTING_COMMA_OR_END:
                 if self.stack[-1] == Scope.OBJECT:
-                    return self.CHARS_OBJECT_NEXT
+                    if not self.remaining_keys:
+                        return self.CHAR_OBJECT_CLOSE
+                    else:
+                        return self.CHAR_COMMA
+
                 elif self.stack[-1] == Scope.ARRAY:
                     return self.CHARS_ARRAY_NEXT
 
