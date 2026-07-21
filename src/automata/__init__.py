@@ -7,10 +7,13 @@ from .primitives import (
     ExactMatchFSM,
     ExactMatchState
 )
+
 from .compiler import (
-    compile_tools,
+    SchemaCompiler,
     UnsupportedSchemaTypeError,
-    CompiledSchema)
+    CompiledSchema
+)
+
 from .pda import PDAState, JSONPushdownAutomaton, Scope
 
 __all__ = [
