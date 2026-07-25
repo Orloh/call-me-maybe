@@ -66,8 +66,11 @@ class BaseFSM(ABC):
 
 class NumberState(Enum):
     START = auto()
-    INTEGER_PART = auto()
-    FRACTIONAL_PART = auto()
+    AFTER_MINUS = auto()  # Just saw "-", need digit
+    AFTER_ZERO = auto()  # Just saw "0", need "."/terminator
+    INTEGER_PART = auto()  # Non-zero digits
+    AFTER_DOT = auto()  # Just saw ".", need digit
+    FRACTIONAL_PART = auto()  # Digits after "."
     TERMINAL = auto()
 
 
@@ -85,20 +88,59 @@ class NumberFSM(BaseFSM):
 
     def advance(self, char: str) -> bool:
         if self.state == NumberState.START:
-            if char == "-" or char.isdigit():
+            if char == "-":
+                self.state = NumberState.AFTER_MINUS
+                return True
+            elif char == "0":
+                self.state = NumberState.AFTER_ZERO
+                return True
+            elif char.isdigit():
                 self.state = NumberState.INTEGER_PART
                 return True
+            return False
+
+        elif self.state == NumberState.AFTER_MINUS:
+            # After "-", must have a digit (not another "-" or ".")
+            if char == "0":
+                self.state = NumberState.AFTER_ZERO
+                return True
+            elif char.isdigit():
+                self.state = NumberState.INTEGER_PART
+                return True
+            return False
+
+        elif self.state == NumberState.AFTER_ZERO:
+            # After "0", can only have ".", "e", "E", or terminator
+            if char == ".":
+                self.state = NumberState.AFTER_DOT
+                return True
+            elif char in ("e", "E"):
+                # Exponent not implemented yet, reject
+                return False
+            elif char in self.TERMINATORS:
+                self.state = NumberState.TERMINAL
+                return False
             return False
 
         elif self.state == NumberState.INTEGER_PART:
             if char.isdigit():
                 return True
             elif char == ".":
-                self.state = NumberState.FRACTIONAL_PART
+                self.state = NumberState.AFTER_DOT
                 return True
+            elif char in ("e", "E"):
+                # Exponent not implemented yet, reject
+                return False
             elif char in self.TERMINATORS:
                 self.state = NumberState.TERMINAL
                 return False
+            return False
+
+        elif self.state == NumberState.AFTER_DOT:
+            # After ".", must have at least one digit
+            if char.isdigit():
+                self.state = NumberState.FRACTIONAL_PART
+                return True
             return False
 
         elif self.state == NumberState.FRACTIONAL_PART:
@@ -114,8 +156,19 @@ class NumberFSM(BaseFSM):
     def accepts_char(self, char: str) -> bool:
         if self.state == NumberState.START:
             return char == "-" or char.isdigit()
+        elif self.state == NumberState.AFTER_MINUS:
+            # After "-", must have a digit
+            return char.isdigit()
+        elif self.state == NumberState.AFTER_ZERO:
+            # After "0", can only have ".", "e", "E", or terminator
+            return (
+                char == "." or char in ("e", "E") or char in self.TERMINATORS
+            )
         elif self.state == NumberState.INTEGER_PART:
-            return char.isdigit() or char == "."
+            return char.isdigit() or char == "." or char in ("e", "E")
+        elif self.state == NumberState.AFTER_DOT:
+            # After ".", must have at least one digit
+            return char.isdigit()
         elif self.state == NumberState.FRACTIONAL_PART:
             return char.isdigit()
         return False
@@ -123,7 +176,9 @@ class NumberFSM(BaseFSM):
     def terminates_on(self, char: str) -> bool:
         if self.state == NumberState.TERMINAL:
             return True
+        # Can only terminate if we've consumed at least one digit
         if self.state in (
+            NumberState.AFTER_ZERO,
             NumberState.INTEGER_PART,
             NumberState.FRACTIONAL_PART
         ):
@@ -138,8 +193,17 @@ class NumberFSM(BaseFSM):
     def allowed_characters(self) -> set[str]:
         if self.state == NumberState.START:
             return self.DIGITS | self.MINUS_SIGN
+        elif self.state == NumberState.AFTER_MINUS:
+            # After "-", must have a digit
+            return self.DIGITS
+        elif self.state == NumberState.AFTER_ZERO:
+            # After "0", can only have ".", "e", "E", or terminator
+            return self.DECIMAL_POINT | {"e", "E"} | self.TERMINATORS
         elif self.state == NumberState.INTEGER_PART:
-            return self.DIGITS | self.DECIMAL_POINT | self.TERMINATORS
+            return self.DIGITS | self.DECIMAL_POINT | {"e", "E"}
+        elif self.state == NumberState.AFTER_DOT:
+            # After ".", must have at least one digit
+            return self.DIGITS
         elif self.state == NumberState.FRACTIONAL_PART:
             return self.DIGITS | self.TERMINATORS
         return set()

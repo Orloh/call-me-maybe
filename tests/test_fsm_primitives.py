@@ -27,14 +27,16 @@ def test_number_fsm_valid_negative_float():
     fsm = NumberFSM()
     
     assert fsm.advance('-') is True
-    assert fsm.state == NumberState.INTEGER_PART
+    assert fsm.state == NumberState.AFTER_MINUS
     
     assert fsm.advance('3') is True
+    assert fsm.state == NumberState.INTEGER_PART
     
     assert fsm.advance('.') is True
-    assert fsm.state == NumberState.FRACTIONAL_PART
+    assert fsm.state == NumberState.AFTER_DOT
     
     assert fsm.advance('1') is True
+    assert fsm.state == NumberState.FRACTIONAL_PART
     assert fsm.advance('4') is True
     
     assert fsm.advance('}') is False
@@ -55,7 +57,7 @@ def test_number_fsm_rejects_multiple_decimals():
     fsm.advance('3')
     fsm.advance('.')
     
-    assert fsm.state == NumberState.FRACTIONAL_PART
+    assert fsm.state == NumberState.AFTER_DOT
     
     assert fsm.advance('.') is False
 
@@ -66,27 +68,27 @@ def test_number_fsm_rejects_multiple_decimals():
 
 def test_number_fsm_allowed_characters_pruning():
     """
-    Verifies that the FSM correctly reports allowed characters 
+    Verifies that the FSM correctly reports allowed characters
     to the Trie for aggressive token pruning.
     """
     fsm = NumberFSM()
-    
+
     allowed_start = fsm.allowed_characters()
     assert '-' in allowed_start
     assert '5' in allowed_start
     assert '.' not in allowed_start
     assert ',' not in allowed_start
-    
+
     fsm.advance('5')
     allowed_int = fsm.allowed_characters()
     assert '.' in allowed_int
-    assert ',' in allowed_int
+    assert ',' not in allowed_int  # Terminators handled by terminates_on()
     assert '-' not in allowed_int
-    
+
     fsm.advance('.')
     allowed_frac = fsm.allowed_characters()
     assert '7' in allowed_frac
-    assert ',' in allowed_frac
+    assert ',' not in allowed_frac  # Terminators handled by terminates_on()
     assert '.' not in allowed_frac
 
 
