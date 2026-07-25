@@ -107,8 +107,11 @@ class SchemaCompiler:
             case "string":
                 return lambda: StringLiteralFSM()
 
-            case "number" | "integer" | "float":
-                return lambda: NumberFSM()
+            case "integer":
+                return lambda: NumberFSM(mode="integer")
+
+            case "number" | "float":
+                return lambda: NumberFSM(mode="number")
 
             case "boolean":
                 return lambda: ExactMatchFSM(["true", "false"])

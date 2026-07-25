@@ -83,6 +83,10 @@ class NumberFSM(BaseFSM):
     MINUS_SIGN = {"-"}
     DECIMAL_POINT = {"."}
 
+    def __init__(self, mode: str = "number") -> None:
+        self.mode = mode  # "number" or "integer"
+        super().__init__()
+
     def _initial_state(self) -> Enum:
         return NumberState.START
 
@@ -111,6 +115,14 @@ class NumberFSM(BaseFSM):
 
         elif self.state == NumberState.AFTER_ZERO:
             # After "0", can only have ".", "e", "E", or terminator
+            if self.mode == "integer":
+                # Integers can't have a decimal point
+                if char in ("e", "E"):
+                    return False
+                elif char in self.TERMINATORS:
+                    self.state = NumberState.TERMINAL
+                    return False
+                return False
             if char == ".":
                 self.state = NumberState.AFTER_DOT
                 return True
@@ -125,7 +137,7 @@ class NumberFSM(BaseFSM):
         elif self.state == NumberState.INTEGER_PART:
             if char.isdigit():
                 return True
-            elif char == ".":
+            elif self.mode == "number" and char == ".":
                 self.state = NumberState.AFTER_DOT
                 return True
             elif char in ("e", "E"):
@@ -161,10 +173,14 @@ class NumberFSM(BaseFSM):
             return char.isdigit()
         elif self.state == NumberState.AFTER_ZERO:
             # After "0", can only have ".", "e", "E", or terminator
+            if self.mode == "integer":
+                return char in self.TERMINATORS
             return (
                 char == "." or char in ("e", "E") or char in self.TERMINATORS
             )
         elif self.state == NumberState.INTEGER_PART:
+            if self.mode == "integer":
+                return char.isdigit() or char in ("e", "E")
             return char.isdigit() or char == "." or char in ("e", "E")
         elif self.state == NumberState.AFTER_DOT:
             # After ".", must have at least one digit
@@ -188,21 +204,23 @@ class NumberFSM(BaseFSM):
     def clone(self) -> 'NumberFSM':
         new = NumberFSM.__new__(NumberFSM)
         new.state = self.state
+        new.mode = self.mode
         return new
 
     def allowed_characters(self) -> set[str]:
         if self.state == NumberState.START:
             return self.DIGITS | self.MINUS_SIGN
         elif self.state == NumberState.AFTER_MINUS:
-            # After "-", must have a digit
             return self.DIGITS
         elif self.state == NumberState.AFTER_ZERO:
-            # After "0", can only have ".", "e", "E", or terminator
+            if self.mode == "integer":
+                return self.TERMINATORS
             return self.DECIMAL_POINT | {"e", "E"} | self.TERMINATORS
         elif self.state == NumberState.INTEGER_PART:
+            if self.mode == "integer":
+                return self.DIGITS
             return self.DIGITS | self.DECIMAL_POINT | {"e", "E"}
         elif self.state == NumberState.AFTER_DOT:
-            # After ".", must have at least one digit
             return self.DIGITS
         elif self.state == NumberState.FRACTIONAL_PART:
             return self.DIGITS | self.TERMINATORS
@@ -216,6 +234,7 @@ class StringState(Enum):
     EXPECTING_OPEN_QUOTE = auto()
     INSIDE_STRING = auto()
     ESCAPE_SEQUENCE = auto()
+    HEX_SEQUENCE = auto()
     TERMINAL = auto()
 
 
@@ -233,6 +252,7 @@ class StringLiteralFSM(BaseFSM):
     def __init__(self) -> None:
         super().__init__()
         self.parsed_value = ""
+        self.hex_digits_remaining = 0
 
     def _initial_state(self) -> Enum:
         return StringState.EXPECTING_OPEN_QUOTE
@@ -261,9 +281,23 @@ class StringLiteralFSM(BaseFSM):
                 return True
 
         elif self.state == StringState.ESCAPE_SEQUENCE:
+            if char == "u":
+                self.state = StringState.HEX_SEQUENCE
+                self.hex_digits_remaining = 4
+                self.parsed_value += char
+                return True
             if char in self.VALID_ESCAPES:
                 self.state = StringState.INSIDE_STRING
                 self.parsed_value += char
+                return True
+            return False
+
+        elif self.state == StringState.HEX_SEQUENCE:
+            if char.isdigit() or char in "abcdefABCDEF":
+                self.parsed_value += char
+                self.hex_digits_remaining -= 1
+                if self.hex_digits_remaining == 0:
+                    self.state = StringState.INSIDE_STRING
                 return True
             return False
 
@@ -276,17 +310,18 @@ class StringLiteralFSM(BaseFSM):
             return char not in self.ILLEGAL_RAW_CHARS
         elif self.state == StringState.ESCAPE_SEQUENCE:
             return char in self.VALID_ESCAPES
+        elif self.state == StringState.HEX_SEQUENCE:
+            return char.isdigit() or char in "abcdefABCDEF"
         return False
 
     def terminates_on(self, char: str) -> bool:
-        # StringLiteralFSM only hands back to the PDA when it is already
-        # TERMINAL: any advance() then returns False with is_terminal().
-        return self.state == StringState.TERMINAL
+        return self.state in (StringState.TERMINAL, )
 
     def clone(self) -> 'StringLiteralFSM':
         new = StringLiteralFSM.__new__(StringLiteralFSM)
         new.state = self.state
         new.parsed_value = self.parsed_value
+        new.hex_digits_remaining = self.hex_digits_remaining
         return new
 
     def is_terminal(self) -> bool:

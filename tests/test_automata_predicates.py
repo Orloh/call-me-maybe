@@ -105,7 +105,7 @@ def _number_fsm_states() -> list[BaseFSM]:
 
 def _string_fsm_states() -> list[BaseFSM]:
     fsms = []
-    for prefix in ['"', '"ab', '"a\\', '"a\\n']:
+    for prefix in ['"', '"ab', '"a\\', '"a\\n', '"\\u', '"\\u00', '"\\u0041']:
         fsm = StringLiteralFSM()
         for char in prefix:
             fsm.advance(char)
