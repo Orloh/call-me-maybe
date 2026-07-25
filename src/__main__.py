@@ -2,7 +2,11 @@ import argparse
 import logging
 from pathlib import Path
 
-from src.io_manager import load_function_definitions, load_prompts, write_output
+from src.io_manager import (
+    load_function_definitions,
+    load_prompts,
+    write_output
+)
 
 from src.engine import initialize_system_dependencies
 from src.engine import FunctionCallingPipeline
@@ -13,6 +17,17 @@ logger = logging.getLogger(__name__)
 
 
 def main() -> None:
+    # Parse Arguments
+    parser = argparse.ArgumentParser(
+        description="Run the Function Calling Pipeline."
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable step-by-step PDA/FSM tracing in the terminal."
+    )
+    args = parser.parse_args()
+
     # Path Setup
     project_root = Path(__file__).resolve().parent.parent
     input_dir = project_root / "data" / "input"

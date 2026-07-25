@@ -1,8 +1,9 @@
-import math
 from src.automata.pda import JSONPushdownAutomaton, PDAState
 from src.trie import PrefixTrie
 from src.dfs import find_allowed_tokens
+from src.utils import GenerationTracer
 from llm_sdk import Small_LLM_Model
+
 
 class ConstrainedGenerator:
     """
@@ -14,17 +15,19 @@ class ConstrainedGenerator:
         model: Small_LLM_Model,
         pda: JSONPushdownAutomaton,
         trie: PrefixTrie,
-    ):
+        debug: bool = False
+    ) -> None:
         self.model = model
         self.pda = pda
         self.trie = trie
+        self.tracer = GenerationTracer(enabled=debug)
 
     def generate(self, prompt: str, max_new_tokens: int = 500) -> str:
         """
         Main execution loop for constrained decoding
         """
         encoded_tensor = self.model.encode(prompt)
-        
+
         if encoded_tensor.dim() == 2:
             current_tokens = encoded_tensor[0].tolist()
         else:
