@@ -1,6 +1,5 @@
-from typing import Callable
 from enum import Enum, auto
-from .primitives import BaseFSM, StringLiteralFSM, ExactMatchFSM
+from .primitives import BaseFSM, ExactMatchFSM
 from .compiler import CompiledSchema
 
 
@@ -24,7 +23,7 @@ class PDAState(Enum):
     # Array states
     EXPECTING_ARRAY_START = auto()
 
-    #Shared states
+    # Shared states
     EXPECTING_VALUE = auto()
     EXPECTING_COMMA_OR_END = auto()
     TERMINAL = auto()
@@ -40,12 +39,12 @@ class JSONPushdownAutomaton:
     CHAR_OBJECT_CLOSE = frozenset("}")
     CHARS_OBJECT_NEXT = frozenset({",", "}"})
     CHARS_ARRAY_NEXT = frozenset({",", "]"})
-    CHARS_EMPTY = frozenset()
+    CHARS_EMPTY: frozenset[str] = frozenset()
     WHITESPACE = frozenset(" \n\t\r")
 
-    def __init__(self, compiled_schema: CompiledSchema):
+    def __init__(self, compiled_schema: CompiledSchema) -> None:
         self.stack: list[Scope] = []
-        self.state =PDAState.EXPECTING_OBJECT_START
+        self.state = PDAState.EXPECTING_OBJECT_START
         self.active_fsm: BaseFSM | None = None
         self.schema = compiled_schema
         self.current_key: str = ""
@@ -73,8 +72,10 @@ class JSONPushdownAutomaton:
             return True
 
         if self.active_fsm.is_terminal():
-
-            if self.state == PDAState.EXPECTING_COLON and isinstance(self.active_fsm, ExactMatchFSM):
+            if (
+                self.state == PDAState.EXPECTING_COLON
+                and isinstance(self.active_fsm, ExactMatchFSM)
+            ):
                 matched_quoted_key = self.active_fsm.active_candidates[0]
                 self.current_key = matched_quoted_key.strip('"')
 
@@ -86,16 +87,15 @@ class JSONPushdownAutomaton:
 
         return False
 
-
     def _handle_structural_input(self, char: str) -> bool:
         match self.state:
-            case PDAState.EXPECTING_OBJECT_START: 
+            case PDAState.EXPECTING_OBJECT_START:
                 return self._on_object_start(char)
 
-            case PDAState.EXPECTING_KEY:          
+            case PDAState.EXPECTING_KEY:
                 return self._on_key(char)
 
-            case PDAState.EXPECTING_COLON:        
+            case PDAState.EXPECTING_COLON:
                 return self._on_colon(char)
 
             case PDAState.EXPECTING_VALUE:
@@ -108,7 +108,9 @@ class JSONPushdownAutomaton:
                 return False
 
     def _on_object_start(self, char: str) -> bool:
-        """Handles the start of a JSON object and appending it to the LIFO stack"""
+        """
+        Handles the start of a JSON object, pushing it onto the LIFO stack.
+        """
         if char == "{":
             self.stack.append(Scope.OBJECT)
             self.state = PDAState.EXPECTING_KEY
@@ -123,12 +125,12 @@ class JSONPushdownAutomaton:
 
             valid_quoted_keys = [f'"{k}"' for k in self.remaining_keys]
             self.active_fsm = ExactMatchFSM(valid_quoted_keys)
-            self.active_fsm .advance('"')
+            self.active_fsm.advance('"')
             self.state = PDAState.EXPECTING_COLON
             return True
         return False
 
-    def _on_colon(self, char:str) -> bool:
+    def _on_colon(self, char: str) -> bool:
         """Handles the colon separationg a key from its value."""
         if char == ":":
             self.state = PDAState.EXPECTING_VALUE
@@ -146,7 +148,7 @@ class JSONPushdownAutomaton:
             self.active_fsm = fsm_factory()
             self.state = PDAState.EXPECTING_COMMA_OR_END
             return self.active_fsm.advance(char)
-        
+
         except KeyError:
             return False
 
@@ -166,16 +168,22 @@ class JSONPushdownAutomaton:
                 return False
 
             self.stack.pop()
-            self.state = PDAState.EXPECTING_COMMA_OR_END if self.stack else PDAState.TERMINAL
+            if self.stack:
+                self.state = PDAState.EXPECTING_COMMA_OR_END
+            else:
+                self.state = PDAState.TERMINAL
             return True
-        
+
         elif char == ']' and self.stack[-1] == Scope.ARRAY:
             self.stack.pop()
-            self.state = PDAState.EXPECTING_COMMA_OR_END if self.stack else PDAState.TERMINAL
+            if self.stack:
+                self.state = PDAState.EXPECTING_COMMA_OR_END
+            else:
+                self.state = PDAState.TERMINAL
             return True
 
         return False
-        
+
     def allowed_characters(self) -> frozenset[str] | set[str]:
         """
         If active_fsm is alive, return the FSM's allowed chars.
@@ -189,7 +197,7 @@ class JSONPushdownAutomaton:
                 return self.CHARS_EMPTY
 
             case PDAState.EXPECTING_OBJECT_START:
-                return self.CHAR_OBJECT_START 
+                return self.CHAR_OBJECT_START
 
             case PDAState.EXPECTING_KEY:
                 return self.CHAR_KEY_QUOTE

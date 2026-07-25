@@ -1,5 +1,5 @@
-from src.automata import JSONPushdownAutomaton, BaseFSM
 from typing import Any
+
 
 class GenerationTracer:
     def __init__(self, enabled: bool = False) -> None:
@@ -9,12 +9,12 @@ class GenerationTracer:
     def _get_name(obj: Any) -> str:
         if obj is None:
             return "None"
-        
+
         if hasattr(obj, "name") and isinstance(obj.name, str):
             return obj.name
 
         if hasattr(obj, "__class__"):
-            return obj.__class__.__name__
+            return str(obj.__class__.__name__)
 
         return str(obj)
 
@@ -31,10 +31,10 @@ class GenerationTracer:
         self,
         step: int,
         token: str,
-        pda_before:JSONPushdownAutomaton,
-        pda_after:JSONPushdownAutomaton,
-        fsm_before: BaseFSM,
-        fsm_after: BaseFSM,
+        pda_before: Any,
+        pda_after: Any,
+        fsm_before: Any,
+        fsm_after: Any,
         keys_left: int
     ) -> None:
         if not self.enabled:

@@ -2,7 +2,9 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict
 
 
-AllowedTypes = Literal["string", "number", "integer", "float", "boolean", "null"]
+AllowedTypes = Literal[
+    "string", "number", "integer", "float", "boolean", "null"
+]
 
 
 class ParameterField(BaseModel):
@@ -15,10 +17,10 @@ class ParameterField(BaseModel):
 class FunctionDefinition(BaseModel):
     """Represents a single available function the LLM can call."""
     model_config = ConfigDict(extra='forbid')
-    
+
     name: str
     description: str
-    parameters: dict[str, ParameterField] 
+    parameters: dict[str, ParameterField]
     returns: ParameterField
 
 

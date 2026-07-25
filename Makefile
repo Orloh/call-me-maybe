@@ -29,8 +29,9 @@ run: install
 	clear && CUDA_VISIBLE_DEVICES="" $(RUN) -m $(SRC)
 
 debug: install
-	@echo "(BGREEN)Running the main script in debug mode...$(RESET)"
-	$(RUN) -m pdb -m $(SRC)
+	@echo "(BGREEN)Running the main script with PDA/FSM tracing enabled...$(RESET)"
+	clear && CUDA_VISIBLE_DEVICES="" $(RUN) -m $(SRC) --debug
+	# $(RUN) -m pdb -m $(SRC)
 
 clean:
 	@echo "$(YELLOW)Cleaning temporary files and caches...$(RESET)"
@@ -44,7 +45,7 @@ lint:
 	@clear
 	@echo "$(BMAGENTA) Running standard linting...$(RESET)"
 	$(RUN) -m flake8 $(SRC)
-	$(RUN) -m mypy $(SRC) . $(MYPY_FLAGS) 
+	$(RUN) -m mypy $(SRC) $(MYPY_FLAGS)
 
 
 # COLORS

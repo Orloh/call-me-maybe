@@ -1,14 +1,14 @@
 import json
 import logging
-from pathlib import Path
 from llm_sdk import Small_LLM_Model
 from src.trie import PrefixTrie
 
 logger = logging.getLogger(__name__)
 
+
 def initialize_system_dependencies() -> tuple[Small_LLM_Model, PrefixTrie]:
     """
-    Handles all the heavy lifting of bootin up the model and 
+    Handles all the heavy lifting of bootin up the model and
     the in-memory Trie
     """
     logger.info("Initializing language model...")

@@ -22,3 +22,14 @@ llm_sdk = {path="./llm_sdk", editable = true}
 
 [tool.pytest.ini_options]
 pythonpath = "."
+addopts = "-m 'not benchmark'"
+markers = [
+    "benchmark: performance measurement tests (opt-in via pytest -m benchmark)",
+]
+
+# llm_sdk is a local editable package but is treated as third-party for
+# linting purposes: it is excluded from flake8 (src-only) and mypy below.
+[[tool.mypy.overrides]]
+module = ["llm_sdk", "llm_sdk.*"]
+follow_imports = "skip"
+ignore_missing_imports = true

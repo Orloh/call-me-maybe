@@ -1,3 +1,4 @@
+import argparse
 import logging
 from pathlib import Path
 
@@ -10,14 +11,19 @@ logging_format = "%(asctime)s - %(levelname)s - %(message)s"
 logging.basicConfig(level=logging.INFO, format=logging_format)
 logger = logging.getLogger(__name__)
 
+
 def main() -> None:
     # Path Setup
     project_root = Path(__file__).resolve().parent.parent
     input_dir = project_root / "data" / "input"
     output_dir = project_root / "data" / "output"
 
-    functions_path = input_dir / "function_definitions" / "function_definitions.json"
-    prompts_path = input_dir / "function_call_prompts" / "function_calling_tests.json"
+    functions_path = (
+        input_dir / "function_definitions" / "function_definitions.json"
+    )
+    prompts_path = (
+        input_dir / "function_call_prompts" / "function_calling_tests.json"
+    )
     output_path = output_dir / "function_calling_results.json"
 
     logger.info(f"{project_root} :{project_root.exists()}")

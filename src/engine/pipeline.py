@@ -3,11 +3,12 @@ import logging
 
 from llm_sdk import Small_LLM_Model
 from src.trie import PrefixTrie
-from src.automata import JSONPushdownAutomaton, SchemaCompiler 
+from src.automata import JSONPushdownAutomaton, SchemaCompiler
 from src.schema import FunctionDefinition, FunctionCallResult
-from src.engine import ConstrainedGenerator, PromptBuilder 
+from src.engine import ConstrainedGenerator, PromptBuilder
 
 logger = logging.getLogger(__name__)
+
 
 class FunctionCallingPipeline:
     """
@@ -54,12 +55,22 @@ class FunctionCallingPipeline:
             target_function
         )
 
-        extractor_table = SchemaCompiler.compile_extractor_table(target_function)
+        extractor_table = SchemaCompiler.compile_extractor_table(
+            target_function
+        )
 
         extractor_pda = JSONPushdownAutomaton(extractor_table)
-        extractor_gen = ConstrainedGenerator(self.model, extractor_pda, self.trie)
+        extractor_gen = ConstrainedGenerator(
+            self.model,
+            extractor_pda,
+            self.trie,
+            debug=self.debug
+        )
 
-        extractor_json_str = extractor_gen.generate(extractor_prompt, max_new_tokens=300)
+        extractor_json_str = extractor_gen.generate(
+            extractor_prompt,
+            max_new_tokens=300
+        )
         extracted_parameters = json.loads(extractor_json_str)
 
         return FunctionCallResult(

@@ -32,31 +32,50 @@ class ConstrainedGenerator:
 
         generated_text = ""
 
-        for _ in range(max_new_tokens):
+        self.tracer.start_trace(prompt)
+
+        for step in range(max_new_tokens):
             if self.pda.state == PDAState.TERMINAL:
                 break
-            
+
             allowed_ids = self._get_allowed_tokens()
-            next_token_id = self._select_next_token(current_tokens, allowed_ids)
+            next_token_id = self._select_next_token(
+                current_tokens,
+                allowed_ids
+            )
 
             current_tokens.append(next_token_id)
             new_text_chunk = self.model.decode([next_token_id])
             generated_text += new_text_chunk
 
-            print(f"'{new_text_chunk}'")
-            
+            pda_before = self.pda.state
+            fsm_before = self.pda.active_fsm
+
             self._advance_pda(new_text_chunk)
 
-        print(f"{generated_text}")
+            self.tracer.log_step(
+                step=step + 1,
+                token=new_text_chunk,
+                pda_before=pda_before,
+                pda_after=self.pda.state,
+                fsm_before=fsm_before,
+                fsm_after=self.pda.active_fsm,
+                keys_left=len(self.pda.remaining_keys)
+            )
+
+        self.tracer.end_trace()
         return generated_text
 
     def _get_allowed_tokens(self) -> list[int]:
         """Queries the DFS to find gramatically valid next tokens."""
         allowed_ids = find_allowed_tokens(self.trie.root, self.pda)
         if not allowed_ids:
-            raise RuntimeError("Grammar deadlock: The PDA rejected all possible next tokens.")
+            raise RuntimeError(
+                "Grammar deadlock: "
+                "The PDA rejected all possible next tokens."
+            )
         return allowed_ids
-    
+
     def _select_next_token(
             self,
             current_tokens: list[int],
@@ -71,14 +90,20 @@ class ConstrainedGenerator:
 
         raw_logits = self.model.get_logits_from_input_ids(current_tokens)
 
-        best_token_id = max(allowed_ids, key=lambda vocab_id: raw_logits[vocab_id])
+        best_token_id = max(
+            allowed_ids,
+            key=lambda vocab_id: raw_logits[vocab_id]
+        )
 
         return best_token_id
 
     def _advance_pda(self, text_chunk: str) -> None:
         """
-        Advances the internal state machine with the newly generated characters.
+        Advances the internal state machine with the newly generated
+        characters.
         """
         for char in text_chunk:
             if not self.pda.advance(char):
-                raise RuntimeError(f"PDA rejected safely char '{char}'. Check DFS logic!")
+                raise RuntimeError(
+                    f"PDA rejected safely char '{char}'. Check DFS logic!"
+                )

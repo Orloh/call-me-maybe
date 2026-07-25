@@ -2,12 +2,13 @@ from abc import ABC, abstractmethod
 from enum import Enum, auto
 import string
 
+
 class BaseFSM(ABC):
     """
     Abstract base class for character-by-character validation.
     """
-    def __init__(self):
-        self.state: Enum =self._initial_state()
+    def __init__(self) -> None:
+        self.state: Enum = self._initial_state()
 
     @abstractmethod
     def _initial_state(self) -> Enum:
@@ -103,20 +104,22 @@ class StringState(Enum):
     ESCAPE_SEQUENCE = auto()
     TERMINAL = auto()
 
+
 class StringLiteralFSM(BaseFSM):
     """
     Validates JSON string literals character-by-character.
-    Strictly enforces opening/closing quotes and handles valid JSON escape sequences.
+    Strictly enforces opening/closing quotes and handles valid JSON
+    escape sequences.
     """
     QUOTE = '"'
     ESCAPE = '\\'
     VALID_ESCAPES = set('"\\/bfnrtu')
     ILLEGAL_RAW_CHARS = set(chr(i) for i in range(32))
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.parsed_value = ""
-    
+
     def _initial_state(self) -> Enum:
         return StringState.EXPECTING_OPEN_QUOTE
 
@@ -168,7 +171,7 @@ class StringLiteralFSM(BaseFSM):
     def is_terminal(self) -> bool:
         return self.state == StringState.TERMINAL
 
-    
+
 class ExactMatchState(Enum):
     MATCHING = auto()
     TERMINAL = auto()
@@ -183,14 +186,16 @@ class ExactMatchFSM(BaseFSM):
 
     def __init__(self, valid_strings: str | list[str]) -> None:
         if not valid_strings:
-            raise ValueError("ExactMatchFSM require at least one valid string.")
+            raise ValueError(
+                "ExactMatchFSM require at least one valid string."
+            )
 
         self.active_candidates = valid_strings
         self.current_index = 0
         super().__init__()
 
     def _initial_state(self) -> Enum:
-       return ExactMatchState.MATCHING
+        return ExactMatchState.MATCHING
 
     def advance(self, char: str) -> bool:
         if self.state == ExactMatchState.TERMINAL:
@@ -198,7 +203,10 @@ class ExactMatchFSM(BaseFSM):
 
         valid_next = [
             candidate for candidate in self.active_candidates
-            if self.current_index < len(candidate) and candidate[self.current_index] == char
+            if (
+                self.current_index < len(candidate)
+                and candidate[self.current_index] == char
+            )
         ]
 
         if not valid_next:

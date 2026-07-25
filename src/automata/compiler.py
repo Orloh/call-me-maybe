@@ -1,9 +1,14 @@
-from typing import Callable 
-from .primitives import BaseFSM, NumberFSM, StringLiteralFSM, ExactMatchFSM
+from typing import Callable
+from .primitives import (
+    BaseFSM,
+    NumberFSM,
+    StringLiteralFSM,
+    ExactMatchFSM
+)
 from src.schema import FunctionDefinition
 
 
-type CompiledSchema = dict[str, Callable[[], BaseFSM]] 
+type CompiledSchema = dict[str, Callable[[], BaseFSM]]
 
 
 class UnsupportedSchemaTypeError(Exception):
@@ -11,6 +16,17 @@ class UnsupportedSchemaTypeError(Exception):
     Raised when the SchemaCompiler encouters an unsuported a type error.
     """
     pass
+
+
+def _make_exact_match_factory(names: list[str]) -> Callable[[], BaseFSM]:
+    """
+    Builds an FSM factory that produces a fresh ExactMatchFSM over the
+    given candidate strings on every call.
+    """
+    def factory() -> BaseFSM:
+        return ExactMatchFSM(names)
+
+    return factory
 
 
 class SchemaCompiler:
@@ -23,7 +39,10 @@ class SchemaCompiler:
         )
 
     @classmethod
-    def compile_router_table(cls, tools: list[FunctionDefinition]) -> CompiledSchema:
+    def compile_router_table(
+        cls,
+        tools: list[FunctionDefinition]
+    ) -> CompiledSchema:
         """
         Creates a routing dictionary that ONLY accpets the "name" key
         and validates against the exact names of the available functions.
@@ -34,11 +53,14 @@ class SchemaCompiler:
             return {}
 
         return {
-            "name": lambda names=valid_function_names: ExactMatchFSM(names)
+            "name": _make_exact_match_factory(valid_function_names)
         }
 
     @classmethod
-    def compile_extractor_table(cls, tool: FunctionDefinition) -> CompiledSchema:
+    def compile_extractor_table(
+        cls,
+        tool: FunctionDefinition
+    ) -> CompiledSchema:
         """
         Creates a routing dictionary strictly limited to the parameters of
         ONE specific target function.
@@ -49,9 +71,12 @@ class SchemaCompiler:
             routing_table[param_key] = cls._map_type_to_fsm(param_field.type)
 
         return routing_table
-    
+
     @classmethod
-    def compile_tools(cls, tools: list[FunctionDefinition]) -> CompiledSchema:
+    def compile_tools(
+        cls,
+        tools: list[FunctionDefinition]
+    ) -> CompiledSchema:
         """
         Parses a list of FunctionDefinitions and creates a universal
         routing dictionary mappin JSON keys to FSM generators.
@@ -61,15 +86,18 @@ class SchemaCompiler:
 
         for tool in tools:
             valid_function_names.append(f'"{tool.name}"')
-            
-            for param_key,  param_field in tool.parameters.items():
-                routing_table[param_key] = cls._map_type_to_fsm(param_field.type)
+
+            for param_key, param_field in tool.parameters.items():
+                fsm_factory = cls._map_type_to_fsm(param_field.type)
+                routing_table[param_key] = fsm_factory
 
         if valid_function_names:
-            routing_table["name"] = lambda names=valid_function_names: ExactMatchFSM(names)
+            routing_table["name"] = _make_exact_match_factory(
+                valid_function_names
+            )
 
         return routing_table
-    
+
     @staticmethod
     def _map_type_to_fsm(data_type: str) -> Callable[[], BaseFSM]:
         """
@@ -92,4 +120,4 @@ class SchemaCompiler:
                 raise UnsupportedSchemaTypeError(
                     "Fatal internal error: "
                     f"Pydantic allowed an unsupported type '{data_type}'."
-                ) 
+                )
