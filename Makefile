@@ -29,8 +29,9 @@ run: install
 	clear && CUDA_VISIBLE_DEVICES="" $(RUN) -m $(SRC)
 
 debug: install
+	clear
 	@echo "(BGREEN)Running the main script with PDA/FSM tracing enabled...$(RESET)"
-	clear && CUDA_VISIBLE_DEVICES="" $(RUN) -m $(SRC) --debug
+	CUDA_VISIBLE_DEVICES="" $(RUN) -m $(SRC) --debug
 	# $(RUN) -m pdb -m $(SRC)
 
 clean:

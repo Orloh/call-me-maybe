@@ -69,3 +69,9 @@ Python 3.12+ required. Package manager is `uv` (not pip). The `llm_sdk` package 
 - `test_io_manager.py` tests permission errors by chmod-ing files in `tmp_path` — these may fail in sandboxed environments.
 - `test_dfs_benchmark.py` has two kinds of tests: an **unmarked correctness snapshot** (`test_dfs_correctness_snapshot_baseline`, runs in the default suite — hand-computed token-id sets pinning DFS behavior) and **`@pytest.mark.benchmark` tests** (excluded by default via `addopts = "-m 'not benchmark'"`; run with `pytest -m benchmark -s`). The benchmarks measure clone count per `find_allowed_tokens` call — the C1 metric.
 - **C1 (DFS clone storm) — FIXED 2026-07-25.** Pre-fix baseline: 331,073 deepcopies / ~11.5s per call inside a string literal with the real vocab. Post-fix (mask via `accepts_char` + cheap `clone()`): structural states collapse to ~10¹ clones; inside strings the ~150k-token enumeration is inherent but the call now takes ~0.7s (~16x faster). Real-vocab numbers: S1=2, S2=7, S4=17 clones; S3=330,620 clones / 0.72s.
+
+## Known Limitations
+
+- **W2 (BPE/decoded charset mismatch):** The trie stores raw BPE strings (e.g., `Ġ` for space); the PDA operates on decoded Unicode text. Consequences: (a) structural whitespace between JSON tokens is impossible — output is always compact JSON; (b) inside string literals, byte-mapped control chars (e.g., `Ċ`→`\n`) pass the PDA but crash `_advance_pda` if selected; (c) non-ASCII Unicode works inside strings only because `accepts_char` is permissive, not because the vocab contains decoded chars. This is a known architectural friction point — a full fix would rebuild the trie on decoded vocab.
+
+- **W7 (`trust_remote_code`):** `llm_sdk.Small_LLM_Model` defaults to `trust_remote_code=True` (required for some HF models including the default Qwen). Callers who care about supply-chain risk should pass `trust_remote_code=False` when the model supports it. No change planned in `llm_sdk/`.

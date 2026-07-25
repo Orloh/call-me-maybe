@@ -5,6 +5,31 @@ from src.utils import GenerationTracer
 from llm_sdk import Small_LLM_Model
 
 
+class MaxTokensExceededError(RuntimeError):
+    """
+    Raised when the generator exhausts `max_new_tokens` without the PDA
+    reaching a terminal state. The partial text is attached as `partial_text`.
+    """
+    def __init__(
+        self,
+        partial_text: str,
+        max_new_tokens: int,
+        final_state: PDAState
+    ) -> None:
+        self.partial_text = partial_text
+        self.max_new_tokens = max_new_tokens
+        self.final_state = final_state
+        super().__init__(
+            "Max tokens ({max_new_tokens}) exceeded without reaching "
+            "TERMINAL. Final PDA state: {final_state.name}. "
+            "Partial text: {partial_text!r}".format(
+                max_new_tokens=max_new_tokens,
+                final_state=final_state,
+                partial_text=partial_text,
+            )
+        )
+
+
 class ConstrainedGenerator:
     """
     Orchestrates the determinsitic generation of a JSON by coupling a
@@ -67,6 +92,12 @@ class ConstrainedGenerator:
             )
 
         self.tracer.end_trace()
+        if self.pda.state != PDAState.TERMINAL:
+            raise MaxTokensExceededError(
+                partial_text=generated_text,
+                max_new_tokens=max_new_tokens,
+                final_state=self.pda.state,
+            )
         return generated_text
 
     def _get_allowed_tokens(self) -> list[int]:

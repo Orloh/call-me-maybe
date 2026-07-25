@@ -57,7 +57,8 @@ def main() -> None:
     pipeline = FunctionCallingPipeline(
         model=model,
         trie=trie,
-        available_functions=available_functions
+        available_functions=available_functions,
+        debug=args.debug
     )
 
     results = []

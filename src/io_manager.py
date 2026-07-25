@@ -22,6 +22,11 @@ class PermissionDeniedError(Exception):
     pass
 
 
+class WriteOutputError(Exception):
+    """Raised when the application fails to write the output file."""
+    pass
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -143,4 +148,4 @@ def write_output(results: list[FunctionCallResult], filepath: Path) -> None:
         logger.exception(
             f"An unexpected error ocurred while writing to {filepath}"
         )
-        raise Exception(f"Failed to write output: {error}") from error
+        raise WriteOutputError(f"Failed to write output: {error}") from error

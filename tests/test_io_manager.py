@@ -3,7 +3,7 @@ import os
 import stat
 import pytest
 from pathlib import Path
-from src.io_manager import JSONParsingError, SchemaValidationError, InputFileNotFoundError, PermissionDeniedError
+from src.io_manager import JSONParsingError, SchemaValidationError, InputFileNotFoundError, PermissionDeniedError, WriteOutputError
 from src.io_manager import load_function_definitions, load_prompts, write_output
 from src.schema import FunctionDefinition, PromptItem, FunctionCallResult
 
