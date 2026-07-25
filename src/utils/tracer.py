@@ -18,7 +18,7 @@ class GenerationTracer:
 
         return str(obj)
 
-    def start_tracer(self, prompt: str) -> None:
+    def start_trace(self, prompt: str) -> None:
         if not self.enabled:
             return
         print(
@@ -51,7 +51,7 @@ class GenerationTracer:
             f"Keys Left: {keys_left}"
         )
 
-    def end_trace(self):
+    def end_trace(self) -> None:
         if not self.enabled:
             return
         print(

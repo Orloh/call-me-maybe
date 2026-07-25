@@ -41,12 +41,16 @@ def load_function_definitions(filepath: Path) -> list[FunctionDefinition]:
         ) from error
 
     except json.JSONDecodeError as error:
-        raise JSONParsingError(f"Invalid JSON syntax in {filepath}: {error}") from error
-    
-    except Exception as error:
-        logger.exception(f"An unexpected error ocurred while loading {filepath}")
-        raise Exception
-    
+        raise JSONParsingError(
+            f"Invalid JSON syntax in {filepath}: {error}"
+        ) from error
+
+    except Exception:
+        logger.exception(
+            f"An unexpected error ocurred while loading {filepath}"
+        )
+        raise
+
     if not isinstance(data, list):
         raise SchemaValidationError(f"Root of {filepath} must be a JSON list")
 
