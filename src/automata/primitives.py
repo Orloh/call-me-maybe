@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from enum import Enum, auto
-import string
 
 
 class BaseFSM(ABC):
@@ -50,13 +49,14 @@ class BaseFSM(ABC):
         """
         pass
 
-    @abstractmethod
     def allowed_characters(self) -> set[str]:
         """
-        Returns all legal characters for the CURRENT state.
-        This is the engine's direct pipeline to the Trie for token pruning.
+        Legacy finite mask for the CURRENT state.
+        Not used by the production DFS (which uses accepts_char).
+        Subclasses MAY override for finite character sets (digits, keys, etc.).
+        Default returns empty set.
         """
-        pass
+        return set()
 
     @abstractmethod
     def is_terminal(self) -> bool:
@@ -288,19 +288,6 @@ class StringLiteralFSM(BaseFSM):
         new.state = self.state
         new.parsed_value = self.parsed_value
         return new
-
-    def allowed_characters(self) -> set[str]:
-        if self.state == StringState.EXPECTING_OPEN_QUOTE:
-            return {self.QUOTE}
-
-        elif self.state == StringState.INSIDE_STRING:
-            allowed = set(string.printable) - self.ILLEGAL_RAW_CHARS
-            return allowed
-
-        elif self.state == StringState.ESCAPE_SEQUENCE:
-            return self.VALID_ESCAPES
-
-        return set()
 
     def is_terminal(self) -> bool:
         return self.state == StringState.TERMINAL

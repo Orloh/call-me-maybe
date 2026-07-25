@@ -92,6 +92,36 @@ def test_number_fsm_allowed_characters_pruning():
     assert '.' not in allowed_frac
 
 
+def test_number_fsm_accepts_char_mirror():
+    """accepts_char must mirror advance()'s True/False for every char."""
+    fsm = NumberFSM()
+    probes = ['-', '5', '.', ',', 'x', '}', ' ']
+    for c in probes:
+        probe = fsm.clone()
+        consumed = probe.advance(c)
+        assert fsm.accepts_char(c) == consumed, f"accepts_char({c!r}) diverged"
+        if not consumed:
+            assert probe.is_terminal() == fsm.terminates_on(c), f"terminates_on({c!r}) diverged"
+
+    # After advancing '5', test INTEGER_PART state
+    fsm.advance('5')
+    for c in probes:
+        probe = fsm.clone()
+        consumed = probe.advance(c)
+        assert fsm.accepts_char(c) == consumed
+        if not consumed:
+            assert probe.is_terminal() == fsm.terminates_on(c)
+
+    # After advancing '.', test FRACTIONAL_PART state
+    fsm.advance('.')
+    for c in probes:
+        probe = fsm.clone()
+        consumed = probe.advance(c)
+        assert fsm.accepts_char(c) == consumed
+        if not consumed:
+            assert probe.is_terminal() == fsm.terminates_on(c)
+
+
 def test_string_fsm_valid_simple_string():
     fsm = StringLiteralFSM()
     
@@ -157,6 +187,18 @@ def test_exact_match_fsm_booleans():
     assert fsm.is_terminal() is True
     
     assert fsm.advance("x") is False
+
+
+def test_exact_match_fsm_accepts_char_mirror():
+    """accepts_char must mirror advance() for ExactMatchFSM."""
+    fsm = ExactMatchFSM(["true", "false"])
+    probes = ['t', 'f', 'r', 'u', 'e', 'x', '"']
+    for c in probes:
+        probe = fsm.clone()
+        consumed = probe.advance(c)
+        assert fsm.accepts_char(c) == consumed
+        if not consumed:
+            assert probe.is_terminal() == fsm.terminates_on(c)
 
 
 def test_exact_match_fsm_overlapping_enums():
