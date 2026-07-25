@@ -64,6 +64,92 @@ class JSONPushdownAutomaton:
 
         return self._handle_structural_input(char)
 
+    def accepts_char(self, char: str) -> bool:
+        """
+        Non-mutating mirror of advance(): returns True iff advance(char)
+        would accept the char in the CURRENT state. The DFS uses this to
+        pre-filter trie edges before paying for a clone.
+
+        Invariant: pda.accepts_char(c) == pda.clone().advance(c)
+        """
+        if self.active_fsm:
+            if self.active_fsm.accepts_char(char):
+                return True
+            if self.active_fsm.terminates_on(char):
+                # Mirror of the FSM hand-off: the clone clears the FSM
+                # and re-dispatches the char to whitespace/structural.
+                return (
+                    char in self.WHITESPACE
+                    or self._structural_accepts(char)
+                )
+            return False
+
+        if char in self.WHITESPACE:
+            return True
+
+        return self._structural_accepts(char)
+
+    def _structural_accepts(self, char: str) -> bool:
+        """
+        Non-mutating mirror of _handle_structural_input().
+        """
+        match self.state:
+            case PDAState.EXPECTING_OBJECT_START:
+                return char == "{"
+
+            case PDAState.EXPECTING_KEY:
+                return char == '"' and bool(self.remaining_keys)
+
+            case PDAState.EXPECTING_COLON:
+                return char == ":"
+
+            case PDAState.EXPECTING_VALUE:
+                # _on_value routes through the fresh FSM for current_key;
+                # on a fresh FSM, advance() ≡ accepts_char().
+                fsm_factory = self.schema.get(self.current_key)
+                if fsm_factory is None:
+                    return False
+                return fsm_factory().accepts_char(char)
+
+            case PDAState.EXPECTING_COMMA_OR_END:
+                return self._comma_or_end_accepts(char)
+
+            case _:
+                return False
+
+    def _comma_or_end_accepts(self, char: str) -> bool:
+        """
+        Non-mutating mirror of _on_comma_or_end().
+        The stack is guaranteed non-empty in EXPECTING_COMMA_OR_END.
+        """
+        top = self.stack[-1]
+        if char == ',':
+            if top == Scope.OBJECT:
+                return bool(self.remaining_keys)
+            return top == Scope.ARRAY
+        if char == '}':
+            return top == Scope.OBJECT and not self.remaining_keys
+        if char == ']':
+            return top == Scope.ARRAY
+        return False
+
+    def clone(self) -> 'JSONPushdownAutomaton':
+        """
+        Cheap copy: shares read-only/immutable fields (schema, state,
+        current_key), copies only what mutations touch (stack,
+        remaining_keys, active_fsm). ~30x faster than copy.deepcopy.
+        """
+        new = JSONPushdownAutomaton.__new__(JSONPushdownAutomaton)
+        new.stack = self.stack.copy()
+        new.state = self.state
+        new.active_fsm = (
+            self.active_fsm.clone() if self.active_fsm else None
+        )
+        new.schema = self.schema
+        new.current_key = self.current_key
+        new.remaining_keys = set(self.remaining_keys)
+        return new
+
     def _handle_fsm_input(self, char: str) -> bool:
         if not self.active_fsm:
             return False

@@ -25,6 +25,32 @@ class BaseFSM(ABC):
         pass
 
     @abstractmethod
+    def accepts_char(self, char: str) -> bool:
+        """
+        Non-mutating mirror of advance(): returns True iff advance(char)
+        would consume the char in the CURRENT state. Used by the DFS to
+        pre-filter trie edges without cloning.
+        """
+        pass
+
+    @abstractmethod
+    def terminates_on(self, char: str) -> bool:
+        """
+        Non-mutating mirror of the hand-off protocol: returns True iff
+        advance(char) would return False AND the FSM would be terminal
+        afterwards (i.e. the char belongs to the PDA for re-dispatch).
+        """
+        pass
+
+    @abstractmethod
+    def clone(self) -> 'BaseFSM':
+        """
+        Cheap copy: shares immutable fields, copies only mutable state.
+        Much faster than copy.deepcopy (no memo dict, no traversal).
+        """
+        pass
+
+    @abstractmethod
     def allowed_characters(self) -> set[str]:
         """
         Returns all legal characters for the CURRENT state.
@@ -84,6 +110,30 @@ class NumberFSM(BaseFSM):
             return False
 
         return False
+
+    def accepts_char(self, char: str) -> bool:
+        if self.state == NumberState.START:
+            return char == "-" or char.isdigit()
+        elif self.state == NumberState.INTEGER_PART:
+            return char.isdigit() or char == "."
+        elif self.state == NumberState.FRACTIONAL_PART:
+            return char.isdigit()
+        return False
+
+    def terminates_on(self, char: str) -> bool:
+        if self.state == NumberState.TERMINAL:
+            return True
+        if self.state in (
+            NumberState.INTEGER_PART,
+            NumberState.FRACTIONAL_PART
+        ):
+            return char in self.TERMINATORS
+        return False
+
+    def clone(self) -> 'NumberFSM':
+        new = NumberFSM.__new__(NumberFSM)
+        new.state = self.state
+        return new
 
     def allowed_characters(self) -> set[str]:
         if self.state == NumberState.START:
@@ -155,6 +205,26 @@ class StringLiteralFSM(BaseFSM):
 
         return False
 
+    def accepts_char(self, char: str) -> bool:
+        if self.state == StringState.EXPECTING_OPEN_QUOTE:
+            return char == self.QUOTE
+        elif self.state == StringState.INSIDE_STRING:
+            return char not in self.ILLEGAL_RAW_CHARS
+        elif self.state == StringState.ESCAPE_SEQUENCE:
+            return char in self.VALID_ESCAPES
+        return False
+
+    def terminates_on(self, char: str) -> bool:
+        # StringLiteralFSM only hands back to the PDA when it is already
+        # TERMINAL: any advance() then returns False with is_terminal().
+        return self.state == StringState.TERMINAL
+
+    def clone(self) -> 'StringLiteralFSM':
+        new = StringLiteralFSM.__new__(StringLiteralFSM)
+        new.state = self.state
+        new.parsed_value = self.parsed_value
+        return new
+
     def allowed_characters(self) -> set[str]:
         if self.state == StringState.EXPECTING_OPEN_QUOTE:
             return {self.QUOTE}
@@ -215,10 +285,38 @@ class ExactMatchFSM(BaseFSM):
         self.active_candidates = valid_next
         self.current_index += 1
 
-        if any(self.current_index == len(candidate) for candidate in self.active_candidates):
+        fully_matched = any(
+            self.current_index == len(candidate)
+            for candidate in self.active_candidates
+        )
+        if fully_matched:
             self.state = ExactMatchState.TERMINAL
 
         return True
+
+    def accepts_char(self, char: str) -> bool:
+        if self.state == ExactMatchState.TERMINAL:
+            return False
+
+        return any(
+            self.current_index < len(candidate)
+            and candidate[self.current_index] == char
+            for candidate in self.active_candidates
+        )
+
+    def terminates_on(self, char: str) -> bool:
+        # ExactMatchFSM only hands back to the PDA when it is already
+        # TERMINAL: any advance() then returns False with is_terminal().
+        return self.state == ExactMatchState.TERMINAL
+
+    def clone(self) -> 'ExactMatchFSM':
+        # active_candidates is only ever reassigned, never mutated in
+        # place, so sharing the list reference across clones is safe.
+        new = ExactMatchFSM.__new__(ExactMatchFSM)
+        new.state = self.state
+        new.active_candidates = self.active_candidates
+        new.current_index = self.current_index
+        return new
 
     def allowed_characters(self) -> set[str]:
         if self.state == ExactMatchState.TERMINAL:
