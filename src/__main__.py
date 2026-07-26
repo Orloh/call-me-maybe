@@ -26,20 +26,57 @@ def main() -> None:
         action="store_true",
         help="Enable step-by-step PDA/FSM tracing in the terminal."
     )
+    parser.add_argument(
+        "--functions",
+        type=str,
+        default=None,
+        help="Path to function definitions JSON "
+             "(default: .../function_definitions.json)."
+    )
+    parser.add_argument(
+        "--prompts",
+        type=str,
+        default=None,
+        help="Path to prompts JSON "
+             "(default: .../function_calling_tests.json)."
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        help="Path to write output JSON "
+             "(default: .../function_calling_results.json)."
+    )
     args = parser.parse_args()
 
-    # Path Setup
+    # Path Setup — CLI args override project defaults
     project_root = Path(__file__).resolve().parent.parent
-    input_dir = project_root / "data" / "input"
-    output_dir = project_root / "data" / "output"
+    default_input = project_root / "data" / "input"
+    default_output = project_root / "data" / "output"
 
     functions_path = (
-        input_dir / "function_definitions" / "function_definitions.json"
+        Path(args.functions).resolve()
+        if args.functions
+        else (
+            default_input
+            / "function_definitions"
+            / "function_definitions.json"
+        )
     )
     prompts_path = (
-        input_dir / "function_call_prompts" / "function_calling_tests.json"
+        Path(args.prompts).resolve()
+        if args.prompts
+        else (
+            default_input
+            / "function_call_prompts"
+            / "function_calling_tests.json"
+        )
     )
-    output_path = output_dir / "function_calling_results.json"
+    output_path = (
+        Path(args.output).resolve()
+        if args.output
+        else default_output / "function_calling_results.json"
+    )
 
     logger.info(f"{project_root} :{project_root.exists()}")
 
