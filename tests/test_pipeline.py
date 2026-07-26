@@ -19,6 +19,12 @@ def mock_trie():
 
 
 @pytest.fixture
+def mock_token_to_decoded():
+    """Provides a dummy token-to-decoded mapping."""
+    return {}
+
+
+@pytest.fixture
 def sample_functions():
     """Provides a standard list of FunctionDefinitions for testing."""
     return [
@@ -38,6 +44,7 @@ def test_pipeline_initialization(
     mock_compile,
     mock_model,
     mock_trie,
+    mock_token_to_decoded,
     sample_functions
 ) -> None:
     """
@@ -45,7 +52,9 @@ def test_pipeline_initialization(
     """
     mock_compile.return_value = {"name": "mock_name_fsm"}
 
-    pipeline = FunctionCallingPipeline(mock_model, mock_trie, sample_functions)
+    pipeline = FunctionCallingPipeline(
+        mock_model, mock_trie, mock_token_to_decoded, sample_functions
+    )
 
     mock_compile.assert_called_once_with(sample_functions)
 
@@ -63,6 +72,7 @@ def test_process_prompt_success(
     mock_prompt_builder,
     mock_model,
     mock_trie,
+    mock_token_to_decoded,
     sample_functions
 ):
     """
@@ -72,7 +82,9 @@ def test_process_prompt_success(
     mock_compile_router.return_value = {"name": "mock_name_fsm"}
     mock_compile_extractor.return_value ={"location": "mock_location_fsm"}
 
-    pipeline = FunctionCallingPipeline(mock_model, mock_trie, sample_functions)
+    pipeline = FunctionCallingPipeline(
+        mock_model, mock_trie, mock_token_to_decoded, sample_functions
+    )
 
     mock_prompt_builder.build_function_name_prompt.return_value = "Phase 1 Prompt"
     mock_prompt_builder.build_parameters_prompt.return_value = "Phase 2 Prompt"
@@ -103,6 +115,7 @@ def test_process_prompt_hallucination_trap(
     mock_generator_class,
     mock_model,
     mock_trie,
+    mock_token_to_decoded,
     sample_functions
 ):
     """
@@ -111,7 +124,9 @@ def test_process_prompt_hallucination_trap(
     """
     mock_compile_router.return_value = {"name": "mock_router_fm"}
 
-    pipeline = FunctionCallingPipeline(mock_model, mock_trie, sample_functions)
+    pipeline = FunctionCallingPipeline(
+        mock_model, mock_trie, mock_token_to_decoded, sample_functions
+    )
 
     mock_gen_instance = mock_generator_class.return_value
     mock_gen_instance.generate.return_value = '{"name": "get_sports_scores"}'

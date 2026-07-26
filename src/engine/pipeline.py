@@ -18,11 +18,13 @@ class FunctionCallingPipeline:
         self,
         model: Small_LLM_Model,
         trie: PrefixTrie,
+        token_to_decoded: dict[int, str],
         available_functions: list[FunctionDefinition],
         debug: bool = False
     ):
         self.model = model
         self.trie = trie
+        self.token_to_decoded = token_to_decoded
         self.router_table = SchemaCompiler.compile_router_table(
             available_functions
         )
@@ -43,6 +45,7 @@ class FunctionCallingPipeline:
             self.model,
             router_pda,
             self.trie,
+            self.token_to_decoded,
             debug=self.debug
         )
 
@@ -73,6 +76,7 @@ class FunctionCallingPipeline:
             self.model,
             extractor_pda,
             self.trie,
+            self.token_to_decoded,
             debug=self.debug
         )
 

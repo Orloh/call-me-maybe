@@ -9,11 +9,14 @@ def test_initialize_system_dependencies_success():
     Proves that the bootstrap function successfully instantiates the model,
     reads the vocabulary file, builds the Trie, and returns them correctly.
     """
-    
+
     dummy_vocab = {"hello": 0, "world": 1, "!": 2}
+    # Decode side-effect: return the token string for a single-token decode.
+    reverse_vocab = {v: k for k, v in dummy_vocab.items()}
+
     dummy_vocab_json = json.dumps(dummy_vocab)
     fake_vocab_path = "/fake/path/to/vocab.json"
-        
+
     with (
         patch("src.engine.bootstrap.Small_LLM_Model") as mock_model_class,
         patch("src.engine.bootstrap.PrefixTrie") as mock_trie_class,
@@ -22,11 +25,14 @@ def test_initialize_system_dependencies_success():
 
         mock_model_instance = mock_model_class.return_value
         mock_model_instance.get_path_to_vocab_file.return_value = fake_vocab_path
+        mock_model_instance.decode.side_effect = (
+            lambda ids: reverse_vocab.get(ids[0], "") if ids else ""
+        )
 
         mock_trie_instance = mock_trie_class.return_value
         mock_trie_instance.size = 3
 
-        model, trie = initialize_system_dependencies()
+        model, trie, token_to_decoded = initialize_system_dependencies()
 
         mock_model_class.assert_called_once()
         mock_model_instance.get_path_to_vocab_file.assert_called_once()
@@ -34,10 +40,12 @@ def test_initialize_system_dependencies_success():
         mock_file.assert_called_once_with(fake_vocab_path, "r", encoding="utf-8")
 
         mock_trie_class.assert_called_once()
+        # The decoded mapping should equal the raw vocab for ASCII tokens.
         mock_trie_instance.build_from_vocab.assert_called_once_with(dummy_vocab)
 
         assert model is mock_model_instance
         assert trie is mock_trie_instance
+        assert token_to_decoded == {0: "hello", 1: "world", 2: "!"}
 
 @patch("src.engine.bootstrap.Small_LLM_Model")
 def test_initialize_system_dependencies_file_not_found(mock_model_class):

@@ -40,11 +40,13 @@ class ConstrainedGenerator:
         model: Small_LLM_Model,
         pda: JSONPushdownAutomaton,
         trie: PrefixTrie,
+        token_to_decoded: dict[int, str],
         debug: bool = False
     ) -> None:
         self.model = model
         self.pda = pda
         self.trie = trie
+        self.token_to_decoded = token_to_decoded
         self.tracer = GenerationTracer(enabled=debug)
 
     def generate(self, prompt: str, max_new_tokens: int = 500) -> str:
@@ -73,7 +75,7 @@ class ConstrainedGenerator:
             )
 
             current_tokens.append(next_token_id)
-            new_text_chunk = self.model.decode([next_token_id])
+            new_text_chunk = self.token_to_decoded[next_token_id]
             generated_text += new_text_chunk
 
             pda_before = self.pda.state

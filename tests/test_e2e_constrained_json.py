@@ -118,13 +118,16 @@ def test_e2e_deterministic_synthetic_vocab() -> None:
     """
     trie = _build_trie(_DETERMINISTIC_VOCAB)
     model = _ScriptedModel(_DETERMINISTIC_VOCAB)
+    token_to_decoded = {v: k for k, v in _DETERMINISTIC_VOCAB.items()}
 
     extraction_prompt = PromptBuilder.build_parameters_prompt(
         "test", _fn_schema()
     )
     extractor_schema = SchemaCompiler.compile_extractor_table(_fn_schema())
     pda = JSONPushdownAutomaton(extractor_schema)
-    gen = ConstrainedGenerator(model, pda, trie)
+    gen = ConstrainedGenerator(
+        model, pda, trie, token_to_decoded
+    )
 
     output = gen.generate(extraction_prompt, max_new_tokens=50)
     parsed = json.loads(output)
@@ -161,6 +164,7 @@ def test_e2e_routing_real_vocab() -> None:
 
     trie = _build_trie(vocab)
     model = _ScriptedModel(vocab)
+    token_to_decoded = {v: k for k, v in vocab.items()}
 
     func = FunctionDefinition(
         name="fn_greet",
@@ -174,7 +178,7 @@ def test_e2e_routing_real_vocab() -> None:
     )
     router_schema = SchemaCompiler.compile_router_table([func])
     pda = JSONPushdownAutomaton(router_schema)
-    gen = ConstrainedGenerator(model, pda, trie)
+    gen = ConstrainedGenerator(model, pda, trie, token_to_decoded)
 
     output = gen.generate(router_prompt, max_new_tokens=50)
     parsed = json.loads(output)

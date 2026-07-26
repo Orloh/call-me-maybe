@@ -45,7 +45,7 @@ def main() -> None:
 
     # Bootstrapping
     logger.info("Bootstrapping dependencies (Model & Prefix Trie)...")
-    model, trie = initialize_system_dependencies()
+    model, trie, token_to_decoded = initialize_system_dependencies()
 
     # Load Data Using io_manager
     logger.info("Loading function definitions and prompts...")
@@ -57,6 +57,7 @@ def main() -> None:
     pipeline = FunctionCallingPipeline(
         model=model,
         trie=trie,
+        token_to_decoded=token_to_decoded,
         available_functions=available_functions,
         debug=args.debug
     )
@@ -65,8 +66,10 @@ def main() -> None:
     logger.info(f"Strating generating loop for {len(prompt_items)} prompts...")
 
     for i, item in enumerate(prompt_items, 1):
-        logger.info(f"Processing [{i}/{len(prompt_items)}]: '{item.prompt[:40]}...'")
-        
+        logger.info(
+            f"Processing [{i}/{len(prompt_items)}]: '{item.prompt[:40]}...'"
+        )
+
         try:
             result = pipeline.process_prompt(
                 user_prompt=item.prompt,
@@ -78,10 +81,13 @@ def main() -> None:
         except Exception as e:
             logger.error(f"-> Failed on prompt [{i}]: {e}")
 
-    #Save Output using io_manager
-    logger.info(f"Writing {len(results)} successful results to {output_path}...")
+    # Save Output using io_manager
+    logger.info(
+        f"Writing {len(results)} successful results to {output_path}..."
+    )
     write_output(results, output_path)
     logger.info("Pipeline execution complete! 🎉")
+
 
 if __name__ == "__main__":
     main()

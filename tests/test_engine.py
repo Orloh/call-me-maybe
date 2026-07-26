@@ -19,7 +19,8 @@ def mock_generator():
     return ConstrainedGenerator(
             model=mock_model,
             pda=mock_pda,
-            trie=mock_trie
+            trie=mock_trie,
+            token_to_decoded={}
     )
 
 
@@ -59,9 +60,9 @@ def test_generate_loop_orchestration(mock_generator):
     mock_tensor = torch.tensor([[101, 102, 103]])
     mock_generator.model.encode.return_value = mock_tensor 
 
+    mock_generator.token_to_decoded = {1: "{", 2: "}"}
     mock_generator._get_allowed_tokens = MagicMock(side_effect=[[1], [2]])
     mock_generator._select_next_token= MagicMock(side_effect=[1, 2])
-    mock_generator.model.decode.side_effect = ["{", "}"]
     mock_generator._advance_pda = MagicMock()
 
     def mock_advance_side_effect(text_chunk):
