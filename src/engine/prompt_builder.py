@@ -67,10 +67,12 @@ class PromptBuilder:
             "from the user request.\n\n"
             f"Target Function: {target_function.name}\n"
             f"Function Description: {target_function.description}\n"
-            "When a parameter expects a regex pattern, generate a generic "
-            "regex (e.g. \\d+ for numbers, [0-9]+ for digits, "
-            "[aeiouAEIOU] for vowels) instead of a literal value from "
-            "the input. The regex must match all relevant items.\n\n"
+            "When a parameter expects a regex pattern, generate a "
+            "character class like [0-9]+ for any digits or numbers. "
+            "Do NOT extract a literal value from the input.\n"
+            "Example:\n"
+            'Input: "Replace all numbers in \'I have 2 cats and 3 dogs\'"\n'
+            'Output: {"regex": "[0-9]+", "replacement": "NUMBERS"}\n\n'
             f"Parameters Schema:\n{schema_str}\n\n"
             f"User Request: \"{user_prompt}\"\n\n"
             "Output ONLY a single JSON object containing the extracted "
