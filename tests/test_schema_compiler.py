@@ -60,6 +60,7 @@ def test_compile_router_table():
     assert isinstance(name_fsm, ExactMatchFSM)
     assert '"fn_add"' in name_fsm.active_candidates
     assert '"fn_subtract"' in name_fsm.active_candidates
+    assert '"none"' in name_fsm.active_candidates
 
 
 def test_schema_compiler_raises_on_invalid_type():
