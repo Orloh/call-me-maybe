@@ -12,7 +12,6 @@ class ParameterField(BaseModel):
     model_config = ConfigDict(extra='forbid')
 
     type: AllowedTypes
-    description: str = ""
 
 
 class FunctionDefinition(BaseModel):

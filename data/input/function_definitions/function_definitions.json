@@ -4,12 +4,10 @@
     "description": "Add two numbers together and return their sum.",
     "parameters": {
       "a": {
-        "type": "number",
-        "description": "The first number to add."
+        "type": "number"
       },
       "b": {
-        "type": "number",
-        "description": "The second number to add."
+        "type": "number"
       }
     },
     "returns": {
@@ -21,8 +19,7 @@
     "description": "Generate a greeting message for a person by name.",
     "parameters": {
       "name": {
-        "type": "string",
-        "description": "The name of the person to greet."
+        "type": "string"
       }
     },
     "returns": {
@@ -34,8 +31,7 @@
     "description": "Reverse a string and return the reversed result.",
     "parameters": {
       "s": {
-        "type": "string",
-        "description": "The string to reverse."
+        "type": "string"
       }
     },
     "returns": {
@@ -47,8 +43,7 @@
     "description": "Calculate the square root of a number.",
     "parameters": {
       "a": {
-        "type": "number",
-        "description": "The number to calculate the square root of."
+        "type": "number"
       }
     },
     "returns": {
@@ -60,16 +55,13 @@
     "description": "Replace all occurrences matching a regex pattern in a string.",
     "parameters": {
       "source_string": {
-        "type": "string",
-        "description": "The source string to perform the regex substitution on."
+        "type": "string"
       },
       "regex": {
-        "type": "string",
-        "description": "The regex pattern to match against the source string."
+        "type": "string"
       },
       "replacement": {
-        "type": "string",
-        "description": "The string to substitute for all matches of the regex pattern."
+        "type": "string"
       }
     },
     "returns": {
