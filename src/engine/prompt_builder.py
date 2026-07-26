@@ -25,13 +25,16 @@ class PromptBuilder:
             function_catalog += f"- {func.name}: {func.description}\n"
 
         return (
-            "You are an expert routing assistant.\n"
-            "Determine which function best matches the user's request.\n\n"
+            "You are a function router. "
+            "Select the single best function that matches "
+            "the user request.\n\n"
             "Available Functions:\n"
             f"{function_catalog}\n"
             f"User Request: \"{user_prompt}\"\n\n"
-            "Output exactly one JSON object witht the key 'name'"
-            "containing the selected function.\n"
+            "Output ONLY a single JSON object with exactly one key 'name'.\n"
+            "The value must be one of the function names listed above.\n"
+            "Do NOT include any explanation, markdown, or extra whitespace.\n"
+            'Example: {"name": "fn_add_numbers"}\n'
             "JSON Output:\n"
         )
 
@@ -50,14 +53,18 @@ class PromptBuilder:
         schema_str = json.dumps(schema_dict, indent=2)
 
         return (
-            "You are an expert data extraction assitant.\n"
-            "Extract the required parameters from the user's request "
-            "based on the schema.\n"
+            "You are a parameter extractor.\n"
+            "Extract the required parameters for the target function "
+            "from the user request.\n\n"
             f"Target Function: {target_function.name}\n"
             f"Function Description: {target_function.description}\n"
             f"Parameters Schema:\n{schema_str}\n\n"
             f"User Request: \"{user_prompt}\"\n\n"
-            "Output exatly one JSON object containing the extracted "
+            "Output ONLY a single JSON object containing the extracted "
             "parameters.\n"
+            "Use exactly the key names from the schema above.\n"
+            "If a parameter value is not found in the request, output null.\n"
+            "Do NOT include any explanation, markdown, or extra whitespace.\n"
+            'Example: {"location": "Madrid", "days": 5}\n'
             "JSON Output:\n"
         )
