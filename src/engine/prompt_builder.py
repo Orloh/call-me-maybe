@@ -30,15 +30,21 @@ class PromptBuilder:
             "the user request.\n\n"
             "Available Functions:\n"
             f"{function_catalog}\n"
-            f"User Request: \"{user_prompt}\"\n\n"
-            "Output ONLY a single JSON object with exactly one key 'name'.\n"
-            "The value must be one of the function names listed above, "
-            "or 'none' if no function matches the request.\n"
-            "Do NOT include any explanation, markdown, or extra whitespace.\n"
-            'Examples:\n'
-            '{"name": "fn_add_numbers"}\n'
-            '{"name": "none"}\n'
-            "JSON Output:\n"
+            "Examples:\n"
+            'User: "Add 2 and 3"\n'
+            'Output: {"name": "fn_add_numbers"}\n\n'
+            'User: "Greet Alice"\n'
+            'Output: {"name": "fn_greet"}\n\n'
+            'User: "Reverse \'hello\'"\n'
+            'Output: {"name": "fn_reverse_string"}\n\n'
+            'User: "Square root of 16"\n'
+            'Output: {"name": "fn_get_square_root"}\n\n'
+            'User: "Replace \'a\' with \'b\'"\n'
+            'Output: {"name": "fn_substitute_string_with_regex"}\n\n'
+            'User: "What\'s the weather?"\n'
+            'Output: {"name": "none"}\n\n'
+            f'User: "{user_prompt}"\n'
+            "Output:"
         )
 
     @staticmethod
