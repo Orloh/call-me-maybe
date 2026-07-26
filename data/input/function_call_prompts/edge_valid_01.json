@@ -1,0 +1,32 @@
+[
+  {
+    "prompt": "Add 2 and 3"
+  },
+  {
+    "prompt": "5 + 3"
+  },
+  {
+    "prompt": "Hello my name is John"
+  },
+  {
+    "prompt": "What is the square root of one hundred and forty-four?"
+  },
+  {
+    "prompt": "reverse the string 'hello world'"
+  },
+  {
+    "prompt": "reverse 'A man a plan a canal panama'"
+  },
+  {
+    "prompt": "Take the string '  hello  ' and reverse it"
+  },
+  {
+    "prompt": "replace all numbers in 'My phone is 555-1234 and zip is 10001' with X"
+  },
+  {
+    "prompt": "Replace all whitespace in 'hello world' with underscores"
+  },
+  {
+    "prompt": "Substitute 'cat' with 'dog' in 'The cat sat on the mat with another cat'"
+  }
+]

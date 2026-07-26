@@ -1,0 +1,14 @@
+[
+  {
+    "prompt": "Compute 2^10"
+  },
+  {
+    "prompt": "factorial of 5"
+  },
+  {
+    "prompt": "tell me the square root of hello world"
+  },
+  {
+    "prompt": "Do nothing"
+  }
+]
