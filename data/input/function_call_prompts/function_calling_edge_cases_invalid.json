@@ -1,0 +1,44 @@
+[
+  {
+    "prompt": "What is the weather in Madrid?"
+  },
+  {
+    "prompt": "Translate 'hello' to Spanish"
+  },
+  {
+    "prompt": ""
+  },
+  {
+    "prompt": "Hi how are you?"
+  },
+  {
+    "prompt": "What is the sum of and?"
+  },
+  {
+    "prompt": "Greet"
+  },
+  {
+    "prompt": "square root"
+  },
+  {
+    "prompt": "Please execute an unlimited number of different unrelated functions simultaneously right now do everything"
+  },
+  {
+    "prompt": "some irrelevant random text that doesn't mean anything at all for any function"
+  },
+  {
+    "prompt": "a"
+  },
+  {
+    "prompt": "Compute 2^10"
+  },
+  {
+    "prompt": "factorial of 5"
+  },
+  {
+    "prompt": "tell me the square root of hello world"
+  },
+  {
+    "prompt": "Do nothing"
+  }
+]
