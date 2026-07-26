@@ -1,0 +1,143 @@
+[
+  {
+    "prompt": "What is the weather in Madrid?"
+  },
+  {
+    "prompt": "Translate 'hello' to Spanish"
+  },
+  {
+    "prompt": ""
+  },
+  {
+    "prompt": "Hi how are you?"
+  },
+  {
+    "prompt": "Add 2 and 3"
+  },
+  {
+    "prompt": "5 + 3"
+  },
+  {
+    "prompt": "What is the sum of and?"
+  },
+  {
+    "prompt": "Greet"
+  },
+  {
+    "prompt": "Hello my name is John"
+  },
+  {
+    "prompt": "square root"
+  },
+  {
+    "prompt": "What is the square root of one hundred and forty-four?"
+  },
+  {
+    "prompt": "reverse the string 'hello world'"
+  },
+  {
+    "prompt": "reverse 'A man a plan a canal panama'"
+  },
+  {
+    "prompt": "Take the string '  hello  ' and reverse it"
+  },
+  {
+    "prompt": "replace all numbers in 'My phone is 555-1234 and zip is 10001' with X"
+  },
+  {
+    "prompt": "Replace all whitespace in 'hello world' with underscores"
+  },
+  {
+    "prompt": "Substitute 'cat' with 'dog' in 'The cat sat on the mat with another cat'"
+  },
+  {
+    "prompt": "Replace  with  in 'something'"
+  },
+  {
+    "prompt": "Please execute an unlimited number of different unrelated functions simultaneously right now do everything"
+  },
+  {
+    "prompt": "some irrelevant random text that doesn't mean anything at all for any function"
+  },
+  {
+    "prompt": "a"
+  },
+  {
+    "prompt": "What is 2 + 2?"
+  },
+  {
+    "prompt": "Compute 2^10"
+  },
+  {
+    "prompt": "factorial of 5"
+  },
+  {
+    "prompt": "tell me the square root of hello world"
+  },
+  {
+    "prompt": "greet 12345"
+  },
+  {
+    "prompt": "add x and y"
+  },
+  {
+    "prompt": "Add 2 and 3 and 4"
+  },
+  {
+    "prompt": "Reverse the string '!@#$%^&*()'"
+  },
+  {
+    "prompt": "Add -5 and 10"
+  },
+  {
+    "prompt": "What is the square root of 0.25?"
+  },
+  {
+    "prompt": "Greet Alice and Bob"
+  },
+  {
+    "prompt": "reverse ''"
+  },
+  {
+    "prompt": "square root of 144 and add 10 to the result"
+  },
+  {
+    "prompt": "Reverse the string 'The quick brown fox jumps over the lazy dog'"
+  },
+  {
+    "prompt": "Generate a greeting for someone named Mary-Jane Watson"
+  },
+  {
+    "prompt": "Replace all occurrences of the word 'hello' with 'goodbye' in the string 'hello world hello'"
+  },
+  {
+    "prompt": "What is the sum of 0 and 0?"
+  },
+  {
+    "prompt": "reverse the string '42'"
+  },
+  {
+    "prompt": "Calculate the square root of ninety-nine"
+  },
+  {
+    "prompt": "Do nothing"
+  },
+  {
+    "prompt": "What is the sum of 3.14 and 2.86?"
+  },
+  {
+    "prompt": "greet JOHN"
+  },
+  {
+    "prompt": "reverse 'héllo'"
+  },
+  {
+    "prompt": "Add 1,000 and 2,000"
+  },
+  {
+    "prompt": "Square root of -16?"
+  },
+  {
+    "prompt": "Substitute 'X' with 'Y' in 'XYZ' and then reverse the result"
+  }
+]

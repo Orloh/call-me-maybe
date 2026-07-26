@@ -32,9 +32,12 @@ class PromptBuilder:
             f"{function_catalog}\n"
             f"User Request: \"{user_prompt}\"\n\n"
             "Output ONLY a single JSON object with exactly one key 'name'.\n"
-            "The value must be one of the function names listed above.\n"
+            "The value must be one of the function names listed above, "
+            "or 'none' if no function matches the request.\n"
             "Do NOT include any explanation, markdown, or extra whitespace.\n"
-            'Example: {"name": "fn_add_numbers"}\n'
+            'Examples:\n'
+            '{"name": "fn_add_numbers"}\n'
+            '{"name": "none"}\n'
             "JSON Output:\n"
         )
 

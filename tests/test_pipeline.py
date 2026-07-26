@@ -119,8 +119,8 @@ def test_process_prompt_hallucination_trap(
     sample_functions
 ):
     """
-    Proves that if Phase 1 somehow generates a function name that does not exist 
-    in available_functions, the pipeline intercepts it and raises a ValueError.
+    Proves that if Phase 1 generates a function name that does not exist,
+    the pipeline returns a 'none' result instead of raising an error.
     """
     mock_compile_router.return_value = {"name": "mock_router_fm"}
 
@@ -131,8 +131,11 @@ def test_process_prompt_hallucination_trap(
     mock_gen_instance = mock_generator_class.return_value
     mock_gen_instance.generate.return_value = '{"name": "get_sports_scores"}'
 
-    with pytest.raises(ValueError, match="LLM hallucinated function: get_sports_scores"):
-        pipeline.process_prompt("Who won the game?", sample_functions)
+    result = pipeline.process_prompt("Who won the game?", sample_functions)
+
+    assert isinstance(result, FunctionCallResult)
+    assert result.name == "none"
+    assert result.parameters == {}
 
     mock_compile_extractor.assert_not_called()
     assert mock_gen_instance.generate.call_count == 1

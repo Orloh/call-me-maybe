@@ -58,8 +58,14 @@ class FunctionCallingPipeline:
             None)
 
         if not target_function:
-            raise ValueError(
-                f"LLM hallucinated function: {selected_func_name}"
+            logger.warning(
+                "No matching function for '%s'. Returning 'none'.",
+                selected_func_name
+            )
+            return FunctionCallResult(
+                prompt=user_prompt,
+                name="none",
+                parameters={}
             )
         # PHASE 2: Parameter Extraction
         extractor_prompt = PromptBuilder.build_parameters_prompt(
