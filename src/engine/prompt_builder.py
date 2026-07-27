@@ -64,7 +64,11 @@ class PromptBuilder:
         return (
             "You are a parameter extractor.\n"
             "Extract the required parameters for the target function "
-            "from the user request.\n\n"
+            "from the user request.\n"
+            "Extract all string values verbatim without transforming them "
+            "(e.g. do not reverse, do not strip spaces).\n"
+            "This rule applies to all parameters except regex parameters "
+            "covered below.\n\n"
             f"Target Function: {target_function.name}\n"
             f"Function Description: {target_function.description}\n\n"
             "Regex rules:\n"
