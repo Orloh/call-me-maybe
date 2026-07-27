@@ -66,19 +66,36 @@ class PromptBuilder:
             "Extract the required parameters for the target function "
             "from the user request.\n\n"
             f"Target Function: {target_function.name}\n"
-            f"Function Description: {target_function.description}\n"
-            "Extract all parameters literally except regex patterns.\n"
-            "When a parameter expects a regex pattern, generate a "
-            "character class like [0-9]+ for digits instead of "
-            "extracting a literal value from the input.\n"
-            "Example: 'replace all numbers' → regex: [0-9]+\n\n"
-            f"Parameters Schema:\n{schema_str}\n\n"
-            f"User Request: \"{user_prompt}\"\n\n"
-            "Output ONLY a single JSON object containing the extracted "
-            "parameters.\n"
-            "Use exactly the key names from the schema above.\n"
-            "If a parameter value is not found in the request, output null.\n"
-            "Do NOT include any explanation, markdown, or extra whitespace.\n"
-            'Example: {"location": "Madrid", "days": 5}\n'
-            "JSON Output:\n"
+            f"Function Description: {target_function.description}\n\n"
+            "Regex rules:\n"
+            "- For class-based replacements (numbers, digits, vowels, "
+            "whitespace), generate a generic pattern (e.g. [0-9]+ for "
+            "digits, [aeiou] for vowels, \\s+ for whitespace).\n"
+            "- For a specific quoted word (e.g. 'cat'), use that word "
+            "literally as the regex.\n\n"
+            "Examples:\n"
+            "User: sum of 2 and 3\n"
+            "Function: fn_add_numbers\n"
+            'Output: {"a": 2, "b": 3}\n'
+            "\n"
+            "User: Replace all numbers in 'A1 B2 C3' with X\n"
+            "Function: fn_substitute_string_with_regex\n"
+            'Output: {"source_string": "A1 B2 C3", "regex": "[0-9]+", '
+            '"replacement": "X"}\n'
+            "\n"
+            "User: Replace all vowels in 'hello' with *\n"
+            "Function: fn_substitute_string_with_regex\n"
+            'Output: {"source_string": "hello", "regex": "[aeiou]", '
+            '"replacement": "*"}\n'
+            "\n"
+            "User: Substitute 'cat' with 'dog' in 'The cat sat'\n"
+            "Function: fn_substitute_string_with_regex\n"
+            'Output: {"source_string": "The cat sat", "regex": "cat", '
+            '"replacement": "dog"}\n'
+            "\n"
+            f"Parameters Schema:\n{schema_str}\n"
+            "\n"
+            f"User: \"{user_prompt}\"\n"
+            f"Function: {target_function.name}\n"
+            "Output:\n"
         )
