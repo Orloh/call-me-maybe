@@ -96,6 +96,7 @@ def main() -> None:
         trie=trie,
         token_to_decoded=token_to_decoded,
         available_functions=available_functions,
+        stop_tokens={151643, 151645},
         debug=args.debug
     )
 

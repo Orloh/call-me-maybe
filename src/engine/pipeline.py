@@ -20,11 +20,13 @@ class FunctionCallingPipeline:
         trie: PrefixTrie,
         token_to_decoded: dict[int, str],
         available_functions: list[FunctionDefinition],
+        stop_tokens: set[int] | None = None,
         debug: bool = False
     ):
         self.model = model
         self.trie = trie
         self.token_to_decoded = token_to_decoded
+        self.stop_tokens = stop_tokens
         self.router_table = SchemaCompiler.compile_router_table(
             available_functions
         )
@@ -46,6 +48,7 @@ class FunctionCallingPipeline:
             router_pda,
             self.trie,
             self.token_to_decoded,
+            stop_tokens=self.stop_tokens,
             debug=self.debug
         )
 
@@ -83,6 +86,7 @@ class FunctionCallingPipeline:
             extractor_pda,
             self.trie,
             self.token_to_decoded,
+            stop_tokens=self.stop_tokens,
             debug=self.debug
         )
 
