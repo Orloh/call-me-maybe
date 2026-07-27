@@ -74,7 +74,7 @@ class PromptBuilder:
             "Regex rules:\n"
             "- For class-based replacements (numbers, digits, vowels, "
             "whitespace), generate a generic pattern (e.g. [0-9]+ for "
-            "digits, [aeiou] for vowels, \\s+ for whitespace).\n"
+            "digits, [aeiouAEIOU] for vowels, \\s+ for whitespace).\n"
             "- For a specific quoted word (e.g. 'cat'), use that word "
             "literally as the regex.\n\n"
             "Examples:\n"
@@ -89,7 +89,7 @@ class PromptBuilder:
             "\n"
             "User: Replace all vowels in 'hello' with *\n"
             "Function: fn_substitute_string_with_regex\n"
-            'Output: {"source_string": "hello", "regex": "[aeiou]", '
+            'Output: {"source_string": "hello", "regex": "[aeiouAEIOU]", '
             '"replacement": "*"}\n'
             "\n"
             "User: Substitute 'cat' with 'dog' in 'The cat sat'\n"
