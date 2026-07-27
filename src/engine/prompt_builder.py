@@ -24,7 +24,7 @@ class PromptBuilder:
         for func in available_functions:
             function_catalog += f"- {func.name}: {func.description}\n"
 
-        system = (
+        return (
             "You are a function router. "
             "Select the single best function that matches "
             "the user request.\n\n"
@@ -35,19 +35,16 @@ class PromptBuilder:
             'Output: {"name": "fn_add_numbers"}\n\n'
             'User: "Greet Alice"\n'
             'Output: {"name": "fn_greet"}\n\n'
-            "User: \"Reverse 'hello'\"\n"
+            'User: "Reverse \'hello\'"\n'
             'Output: {"name": "fn_reverse_string"}\n\n'
             'User: "Square root of 16"\n'
             'Output: {"name": "fn_get_square_root"}\n\n'
-            "User: \"Replace 'a' with 'b'\"\n"
+            'User: "Replace \'a\' with \'b\'"\n'
             'Output: {"name": "fn_substitute_string_with_regex"}\n\n'
             'User: "What\'s the weather?"\n'
-            'Output: {"name": "none"}\n'
-        )
-        return (
-            f"<|im_start|>system\n{system}<|im_end|>\n"
-            f"<|im_start|>user\n{user_prompt}<|im_end|>\n"
-            "<|im_start|>assistant\n"
+            'Output: {"name": "none"}\n\n'
+            f'User: "{user_prompt}"\n'
+            "Output:"
         )
 
     @staticmethod
@@ -64,7 +61,7 @@ class PromptBuilder:
         }
         schema_str = json.dumps(schema_dict, indent=2)
 
-        system = (
+        return (
             "You are a parameter extractor.\n"
             "Extract the required parameters for the target function "
             "from the user request.\n\n"
@@ -75,10 +72,13 @@ class PromptBuilder:
             "character class like [0-9]+ for digits instead of "
             "extracting a literal value from the input.\n"
             "Example: 'replace all numbers' → regex: [0-9]+\n\n"
-            f"Parameters Schema:\n{schema_str}\n"
-        )
-        return (
-            f"<|im_start|>system\n{system}<|im_end|>\n"
-            f"<|im_start|>user\n{user_prompt}<|im_end|>\n"
-            "<|im_start|>assistant\n"
+            f"Parameters Schema:\n{schema_str}\n\n"
+            f"User Request: \"{user_prompt}\"\n\n"
+            "Output ONLY a single JSON object containing the extracted "
+            "parameters.\n"
+            "Use exactly the key names from the schema above.\n"
+            "If a parameter value is not found in the request, output null.\n"
+            "Do NOT include any explanation, markdown, or extra whitespace.\n"
+            'Example: {"location": "Madrid", "days": 5}\n'
+            "JSON Output:\n"
         )
