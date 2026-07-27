@@ -41,16 +41,12 @@ class ConstrainedGenerator:
         pda: JSONPushdownAutomaton,
         trie: PrefixTrie,
         token_to_decoded: dict[int, str],
-        stop_tokens: set[int] | None = None,
         debug: bool = False
     ) -> None:
         self.model = model
         self.pda = pda
         self.trie = trie
         self.token_to_decoded = token_to_decoded
-        self.stop_tokens = (
-            frozenset(stop_tokens) if stop_tokens else frozenset()
-        )
         self.tracer = GenerationTracer(enabled=debug)
 
     def generate(self, prompt: str, max_new_tokens: int = 500) -> str:
@@ -77,9 +73,6 @@ class ConstrainedGenerator:
                 current_tokens,
                 allowed_ids
             )
-
-            if next_token_id in self.stop_tokens:
-                break
 
             current_tokens.append(next_token_id)
             new_text_chunk = self.token_to_decoded[next_token_id]
