@@ -104,7 +104,7 @@ def main() -> None:
 
     for i, item in enumerate(prompt_items, 1):
         logger.info(
-            f"Processing [{i}/{len(prompt_items)}]: '{item.prompt[:40]}...'"
+            f"Processing [{i}/{len(prompt_items)}]: \"{item.prompt}\""
         )
 
         try:

@@ -50,6 +50,7 @@ class FunctionCallingPipeline:
         )
 
         router_json_str = router_gen.generate(router_prompt, max_new_tokens=50)
+        logger.info("Router output: %s", router_json_str)
         selected_func_name = json.loads(router_json_str).get("name")
 
         target_function = next(
@@ -90,6 +91,7 @@ class FunctionCallingPipeline:
             extractor_prompt,
             max_new_tokens=300
         )
+        logger.info("Extractor output: %s", extractor_json_str)
         extracted_parameters = json.loads(extractor_json_str)
 
         return FunctionCallResult(
