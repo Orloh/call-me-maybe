@@ -49,7 +49,10 @@ class FunctionCallingPipeline:
             debug=self.debug
         )
 
-        router_json_str = router_gen.generate(router_prompt, max_new_tokens=50)
+        router_json_str = (
+            router_gen.generate(router_prompt, max_new_tokens=50)
+            .strip()
+        )
         logger.info("Router output: %s", router_json_str)
         selected_func_name = json.loads(router_json_str).get("name")
 
@@ -90,7 +93,7 @@ class FunctionCallingPipeline:
         extractor_json_str = extractor_gen.generate(
             extractor_prompt,
             max_new_tokens=300
-        )
+        ).strip()
         logger.info("Extractor output: %s", extractor_json_str)
         extracted_parameters = json.loads(extractor_json_str)
 
