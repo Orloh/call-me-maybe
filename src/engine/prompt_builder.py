@@ -25,11 +25,15 @@ class PromptBuilder:
             function_catalog += f"- {func.name}: {func.description}\n"
 
         return (
-            "You are a function router. "
-            "Select the single best function that matches "
-            "the user request.\n\n"
-            "Available Functions:\n"
-            f"{function_catalog}\n"
+            "You can call one function to assist in processing "
+            "the user request.\n"
+            "<tools>\n"
+            f"{function_catalog}"
+            "</tools>\n\n"
+            "Return a JSON object with the function name:\n"
+            '{"name": "function_name"}\n\n'
+            "If no function is available for the request, return:\n"
+            '{"name": "none"}\n\n'
             "Examples:\n"
             'User: "Add 2 and 3"\n'
             'Output: {"name": "fn_add_numbers"}\n\n'
@@ -62,22 +66,21 @@ class PromptBuilder:
         schema_str = json.dumps(schema_dict, indent=2)
 
         return (
-            "You are a parameter extractor.\n"
-            "Extract the required parameters for the target function "
+            "Extract the parameters for the selected function "
             "from the user request.\n"
-            "Extract all parameter values verbatim from the user request "
-            "without transforming them (e.g. do not reverse strings, "
-            "do not compute answers for numbers).\n"
-            "This rule applies to all parameters except regex parameters "
+            "Extract all parameter values verbatim without transforming "
+            "them (e.g. do not reverse strings, do not compute answers "
+            "for numbers).\n"
+            "This applies to all parameters except regex parameters "
             "covered below.\n\n"
-            f"Target Function: {target_function.name}\n"
-            f"Function Description: {target_function.description}\n\n"
-            "Regex rules:\n"
-            "- For class-based replacements (numbers, digits, vowels, "
-            "whitespace), generate a generic pattern (e.g. [0-9]+ for "
-            "digits, [aeiouAEIOU] for vowels, \\s+ for whitespace).\n"
-            "- For a specific quoted word (e.g. 'cat'), use that word "
-            "literally as the regex.\n\n"
+            f"Function: {target_function.name}\n"
+            f"Description: {target_function.description}\n\n"
+            "For a regex parameter, generate a generic pattern instead "
+            "of a literal:\n"
+            "- Class-based (numbers, digits, vowels, whitespace) → "
+            "[0-9]+, [aeiouAEIOU], \\s+\n"
+            "- Specific quoted word (e.g. 'cat') → use that word "
+            "literally\n\n"
             "Examples:\n"
             "User: sum of 2 and 3\n"
             "Function: fn_add_numbers\n"
