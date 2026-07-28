@@ -98,6 +98,14 @@ class PromptBuilder:
             'Output: {"source_string": "The cat sat", "regex": "cat", '
             '"replacement": "dog"}\n'
             "\n"
+            "User: Reverse 'Testing'\n"
+            "Function: fn_reverse_string\n"
+            'Output: {"s": "Testing"}\n'
+            "\n"
+            "User: Square root of 25\n"
+            "Function: fn_get_square_root\n"
+            'Output: {"a": 25}\n'
+            "\n"
             f"Parameters Schema:\n{schema_str}\n"
             "\n"
             f"User: \"{user_prompt}\"\n"
