@@ -29,21 +29,8 @@ class PromptBuilder:
             "as a JSON object.\n\n"
             "Available functions:\n"
             f"{function_catalog}"
-            "\n"
-            "Examples:\n"
-            'User: "Add 2 and 3"\n'
-            'Output: {"name": "fn_add_numbers"}\n\n'
-            'User: "Greet Alice"\n'
-            'Output: {"name": "fn_greet"}\n\n'
-            'User: "Reverse \'hello\'"\n'
-            'Output: {"name": "fn_reverse_string"}\n\n'
-            'User: "Square root of 16"\n'
-            'Output: {"name": "fn_get_square_root"}\n\n'
-            'User: "Replace \'a\' with \'b\'"\n'
-            'Output: {"name": "fn_substitute_string_with_regex"}\n\n'
-            'User: "What\'s the weather?"\n'
-            'Output: {"name": "none"}\n\n'
-            f'User: "{user_prompt}"\n'
+            "If no function matches, output: {\"name\": \"none\"}\n\n"
+            f"User: \"{user_prompt}\"\n"
             "Output:"
         )
 
@@ -67,39 +54,11 @@ class PromptBuilder:
             f"Function: {target_function.name}\n"
             f"Description: {target_function.description}\n"
             f"Parameters:\n{schema_lines}\n\n"
-            "For regex parameters, generate a generic pattern:\n"
+            "For regex parameters, generate a pattern instead of a literal:\n"
             "- Class-based (numbers, digits, vowels, whitespace) → "
             "[0-9]+, [aeiouAEIOU], \\s+\n"
             "- Specific quoted word (e.g. 'cat') → use that word "
             "literally\n\n"
-            "Examples:\n"
-            "User: sum of 2 and 3\n"
-            "Function: fn_add_numbers\n"
-            'Output: {"a": 2, "b": 3}\n'
-            "\n"
-            "User: Replace all numbers in 'A1 B2 C3' with X\n"
-            "Function: fn_substitute_string_with_regex\n"
-            'Output: {"source_string": "A1 B2 C3", "regex": "[0-9]+", '
-            '"replacement": "X"}\n'
-            "\n"
-            "User: Replace all vowels in 'hello' with *\n"
-            "Function: fn_substitute_string_with_regex\n"
-            'Output: {"source_string": "hello", "regex": "[aeiouAEIOU]", '
-            '"replacement": "*"}\n'
-            "\n"
-            "User: Substitute 'cat' with 'dog' in 'The cat sat'\n"
-            "Function: fn_substitute_string_with_regex\n"
-            'Output: {"source_string": "The cat sat", "regex": "cat", '
-            '"replacement": "dog"}\n'
-            "\n"
-            "User: Reverse 'Testing'\n"
-            "Function: fn_reverse_string\n"
-            'Output: {"s": "Testing"}\n'
-            "\n"
-            "User: Square root of 25\n"
-            "Function: fn_get_square_root\n"
-            'Output: {"a": 25}\n'
-            "\n"
             f"User: \"{user_prompt}\"\n"
             f"Function: {target_function.name}\n"
             "Output:\n"
