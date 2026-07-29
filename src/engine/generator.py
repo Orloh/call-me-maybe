@@ -49,16 +49,9 @@ class ConstrainedGenerator:
         self.token_to_decoded = token_to_decoded
         self.tracer = GenerationTracer(enabled=debug)
 
-    def generate(
-        self,
-        prompt: str,
-        max_new_tokens: int = 500,
-        initial_text: str = ""
-    ) -> str:
+    def generate(self, prompt: str, max_new_tokens: int = 500) -> str:
         """
-        Main execution loop for constrained decoding.
-        `initial_text` is prepended to the output — the PDA is advanced
-        through its characters before the main generation loop.
+        Main execution loop for constrained decoding
         """
         encoded_tensor = self.model.encode(prompt)
 
@@ -67,13 +60,7 @@ class ConstrainedGenerator:
         else:
             current_tokens = encoded_tensor.tolist()
 
-        generated_text = initial_text
-
-        for char in initial_text:
-            if not self.pda.advance(char):
-                raise RuntimeError(
-                    f"PDA rejected initial text char {char!r}."
-                )
+        generated_text = ""
 
         self.tracer.start_trace(prompt)
 
