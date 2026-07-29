@@ -83,6 +83,10 @@ class PromptBuilder:
         )
 
         if target_function.name == "fn_reverse_string":
+            contradiction = (
+                "Despite the function name, "
+                "do NOT reverse the string — extract it verbatim.\n"
+            )
             counter_examples = (
                 "\n"
                 "User: Reverse 'Testing'\n"
@@ -98,11 +102,16 @@ class PromptBuilder:
                 'Output: {"s": "xyz"}\n'
             )
         elif target_function.name == "fn_get_square_root":
+            contradiction = ""
             counter_examples = (
                 "\n"
                 "User: Square root of 25\n"
                 "Function: fn_get_square_root\n"
                 'Output: {"a": 25}\n'
+                "\n"
+                "User: Calculate the square root of 49\n"
+                "Function: fn_get_square_root\n"
+                'Output: {"a": 49}\n'
                 "\n"
                 "User: Square root of 9\n"
                 "Function: fn_get_square_root\n"
@@ -113,6 +122,7 @@ class PromptBuilder:
                 'Output: {"a": 100}\n'
             )
         else:
+            contradiction = ""
             counter_examples = ""
 
         return (
@@ -121,6 +131,7 @@ class PromptBuilder:
             "Only extract the arguments from the user request.\n\n"
             f"Function: {target_function.name}\n"
             f"Description: {target_function.description}\n"
+            f"{contradiction}"
             f"Parameters:\n{schema_lines}\n\n"
             "For regex parameters, generate a generic pattern:\n"
             "- Class-based (numbers, digits, vowels, whitespace) → "
