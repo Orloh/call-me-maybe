@@ -1,4 +1,3 @@
-import json
 from src.schema import FunctionDefinition
 
 
@@ -25,15 +24,12 @@ class PromptBuilder:
             function_catalog += f"- {func.name}: {func.description}\n"
 
         return (
-            "You can call one function to assist in processing "
-            "the user request.\n"
-            "<tools>\n"
+            "Task: You are a function selector. Given a user request, "
+            "output the name of the best matching function "
+            "as a JSON object.\n\n"
+            "Available functions:\n"
             f"{function_catalog}"
-            "</tools>\n\n"
-            "Return a JSON object with the function name:\n"
-            '{"name": "function_name"}\n\n'
-            "If no function is available for the request, return:\n"
-            '{"name": "none"}\n\n'
+            "\n"
             "Examples:\n"
             'User: "Add 2 and 3"\n'
             'Output: {"name": "fn_add_numbers"}\n\n'
@@ -59,24 +55,19 @@ class PromptBuilder:
         """
         Formats the prompt to extract the specific parameter for the funtion.
         """
-        schema_dict = {
-            key: field.model_dump()
+        schema_lines = "\n".join(
+            f"  {key} ({field.type})"
             for key, field in target_function.parameters.items()
-        }
-        schema_str = json.dumps(schema_dict, indent=2)
+        )
 
         return (
-            "Extract the parameters for the selected function "
-            "from the user request.\n"
-            "Extract all parameter values verbatim without transforming "
-            "them (e.g. do not reverse strings, do not compute answers "
-            "for numbers).\n"
-            "This applies to all parameters except regex parameters "
-            "covered below.\n\n"
+            "Task: You are a parameter extractor. "
+            "Do NOT solve the problem or calculate the answer. "
+            "Only extract the arguments from the user request.\n\n"
             f"Function: {target_function.name}\n"
-            f"Description: {target_function.description}\n\n"
-            "For a regex parameter, generate a generic pattern instead "
-            "of a literal:\n"
+            f"Description: {target_function.description}\n"
+            f"Parameters:\n{schema_lines}\n\n"
+            "For regex parameters, generate a generic pattern:\n"
             "- Class-based (numbers, digits, vowels, whitespace) → "
             "[0-9]+, [aeiouAEIOU], \\s+\n"
             "- Specific quoted word (e.g. 'cat') → use that word "
@@ -108,8 +99,6 @@ class PromptBuilder:
             "User: Square root of 25\n"
             "Function: fn_get_square_root\n"
             'Output: {"a": 25}\n'
-            "\n"
-            f"Parameters Schema:\n{schema_str}\n"
             "\n"
             f"User: \"{user_prompt}\"\n"
             f"Function: {target_function.name}\n"
