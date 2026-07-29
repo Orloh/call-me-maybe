@@ -35,9 +35,9 @@ class PromptBuilder:
             'Output: {"name": "fn_add_numbers"}\n\n'
             'User: "Greet Alice"\n'
             'Output: {"name": "fn_greet"}\n\n'
-            'User: "Reverse \'hello\'"\n'
+            'User: "Reverse \'opencode\'"\n'
             'Output: {"name": "fn_reverse_string"}\n\n'
-            'User: "Square root of 16"\n'
+            'User: "Square root of 25"\n'
             'Output: {"name": "fn_get_square_root"}\n\n'
             'User: "Replace \'a\' with \'b\'"\n'
             'Output: {"name": "fn_substitute_string_with_regex"}\n\n'
@@ -76,10 +76,10 @@ class PromptBuilder:
             'Output: {"source_string": "hello", "regex": "[aeiouAEIOU]", '
             '"replacement": "*"}\n'
             "\n"
-            "User: Substitute 'cat' with 'dog' in 'The cat sat'\n"
+            "User: Substitute 'apple' with 'orange' in 'The apple fell'\n"
             "Function: fn_substitute_string_with_regex\n"
-            'Output: {"source_string": "The cat sat", "regex": "cat", '
-            '"replacement": "dog"}\n'
+            'Output: {"source_string": "The apple fell", "regex": "apple", '
+            '"replacement": "orange"}\n'
         )
 
         if target_function.name == "fn_reverse_string":
@@ -109,7 +109,7 @@ class PromptBuilder:
                 "Function: fn_get_square_root\n"
                 'Output: {"a": 25}\n'
                 "\n"
-                "User: Calculate the square root of 49\n"
+                "User: What is the square root of 49\n"
                 "Function: fn_get_square_root\n"
                 'Output: {"a": 49}\n'
                 "\n"
