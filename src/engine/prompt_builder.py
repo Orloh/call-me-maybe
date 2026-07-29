@@ -60,18 +60,7 @@ class PromptBuilder:
             for key, field in target_function.parameters.items()
         )
 
-        return (
-            "Task: You are a parameter extractor. "
-            "Do NOT solve the problem or calculate the answer. "
-            "Only extract the arguments from the user request.\n\n"
-            f"Function: {target_function.name}\n"
-            f"Description: {target_function.description}\n"
-            f"Parameters:\n{schema_lines}\n\n"
-            "For regex parameters, generate a generic pattern:\n"
-            "- Class-based (numbers, digits, vowels, whitespace) → "
-            "[0-9]+, [aeiouAEIOU], \\s+\n"
-            "- Specific quoted word (e.g. 'cat') → use that word "
-            "literally\n\n"
+        generic_examples = (
             "Examples:\n"
             "User: sum of 2 and 3\n"
             "Function: fn_add_numbers\n"
@@ -91,15 +80,57 @@ class PromptBuilder:
             "Function: fn_substitute_string_with_regex\n"
             'Output: {"source_string": "The cat sat", "regex": "cat", '
             '"replacement": "dog"}\n'
-            "\n"
-            "User: Reverse 'Testing'\n"
-            "Function: fn_reverse_string\n"
-            'Output: {"s": "Testing"}\n'
-            "\n"
-            "User: Square root of 25\n"
-            "Function: fn_get_square_root\n"
-            'Output: {"a": 25}\n'
-            "\n"
+        )
+
+        if target_function.name == "fn_reverse_string":
+            counter_examples = (
+                "\n"
+                "User: Reverse 'Testing'\n"
+                "Function: fn_reverse_string\n"
+                'Output: {"s": "Testing"}\n'
+                "\n"
+                "User: Reverse 'abc'\n"
+                "Function: fn_reverse_string\n"
+                'Output: {"s": "abc"}\n'
+                "\n"
+                "User: Reverse 'xyz'\n"
+                "Function: fn_reverse_string\n"
+                'Output: {"s": "xyz"}\n'
+            )
+        elif target_function.name == "fn_get_square_root":
+            counter_examples = (
+                "\n"
+                "User: Square root of 25\n"
+                "Function: fn_get_square_root\n"
+                'Output: {"a": 25}\n'
+                "\n"
+                "User: Square root of 9\n"
+                "Function: fn_get_square_root\n"
+                'Output: {"a": 9}\n'
+                "\n"
+                "User: Square root of 100\n"
+                "Function: fn_get_square_root\n"
+                'Output: {"a": 100}\n'
+            )
+        else:
+            counter_examples = ""
+
+        return (
+            "Task: You are a parameter extractor. "
+            "Do NOT solve the problem or calculate the answer. "
+            "Only extract the arguments from the user request.\n\n"
+            f"Function: {target_function.name}\n"
+            f"Description: {target_function.description}\n"
+            f"Parameters:\n{schema_lines}\n\n"
+            "For regex parameters, generate a generic pattern:\n"
+            "- Class-based (numbers, digits, vowels, whitespace) → "
+            "[0-9]+, [aeiouAEIOU], \\s+\n"
+            "- Specific quoted word (e.g. 'cat') → use that word "
+            "literally\n\n"
+            f"{generic_examples}"
+            f"{counter_examples}\n"
+            "Reminder: Extract the value exactly as written "
+            "— do NOT transform it.\n\n"
             f"User: \"{user_prompt}\"\n"
             f"Function: {target_function.name}\n"
             "Output:\n"
