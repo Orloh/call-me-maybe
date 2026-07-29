@@ -130,7 +130,6 @@ class PromptBuilder:
             "Do NOT solve the problem or calculate the answer. "
             "Only extract the arguments from the user request.\n\n"
             f"Function: {target_function.name}\n"
-            f"Description: {target_function.description}\n"
             f"{contradiction}"
             f"Parameters:\n{schema_lines}\n\n"
             "For regex parameters, generate a generic pattern:\n"
