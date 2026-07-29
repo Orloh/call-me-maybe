@@ -89,9 +89,9 @@ class PromptBuilder:
             )
             counter_examples = (
                 "\n"
-                "User: Reverse 'Testing'\n"
+                "User: Reverse the string 'book'\n"
                 "Function: fn_reverse_string\n"
-                'Output: {"s": "Testing"}\n'
+                'Output: {"s": "book"}\n'
                 "\n"
                 "User: Reverse 'abc'\n"
                 "Function: fn_reverse_string\n"
