@@ -23,7 +23,9 @@ class GenerationTracer:
             return
         print(
             f"\n{'-'*90}\n"
-            f"🔍 TRACE START: {prompt[:40]}..."
+            f"🔍 TRACE START"
+            f"\n{'-'*90}\n"
+            f"{prompt}"
             f"\n{'-'*90}\n"
         )
 
