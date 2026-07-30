@@ -10,6 +10,13 @@ CHECK_UV = command -v uv
 
 INSTALL_UV = curl -LsSF https://astral.sh/uv/install.sh | sh
 
+CPU ?= 0
+ifeq ($(CPU), 1)
+    CUDA_PREFIX = CUDA_VISIBLE_DEVICES=""
+else
+    CUDA_PREFIX =
+endif
+
 
 # RULES
 .PHONY: all install run debug trace clean lint lint-strict
@@ -26,17 +33,17 @@ install:
 	uv sync --link-mode copy
 
 run: install
-	clear && CUDA_VISIBLE_DEVICES="" $(RUN) -m $(SRC)
+	clear && $(CUDA_PREFIX) $(RUN) -m $(SRC)
 
 debug: install
 	clear
 	@echo "$(BGREEN)Running the main script in debug mode (pdb)...$(RESET)"
-	CUDA_VISIBLE_DEVICES="" $(RUN) -m pdb -m $(SRC) --trace
+	$(CUDA_PREFIX) $(RUN) -m pdb -m $(SRC) --trace
 
 trace:
 	clear
 	@echo "$(BGREEN)Running the main script with per-token PDA/FSM tracing...$(RESET)"
-	CUDA_VISIBLE_DEVICES="" $(RUN) -m $(SRC) --trace
+	$(CUDA_PREFIX) $(RUN) -m $(SRC) --trace
 
 clean:
 	@echo "$(YELLOW)Cleaning temporary files and caches...$(RESET)"
