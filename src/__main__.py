@@ -27,25 +27,25 @@ def main() -> None:
         help="Enable step-by-step PDA/FSM tracing in the terminal."
     )
     parser.add_argument(
-        "--functions",
+        "--functions_definition",
         type=str,
         default=None,
         help="Path to function definitions JSON "
-             "(default: .../function_definitions.json)."
+             "(default: data/input/functions_definition.json)."
     )
     parser.add_argument(
-        "--prompts",
+        "--input",
         type=str,
         default=None,
         help="Path to prompts JSON "
-             "(default: .../function_calling_tests.json)."
+             "(default: data/input/function_calling_tests.json)."
     )
     parser.add_argument(
         "--output",
         type=str,
         default=None,
         help="Path to write output JSON "
-             "(default: .../function_calling_results.json)."
+             "(default: data/output/function_calling_results.json)."
     )
     args = parser.parse_args()
 
@@ -55,22 +55,14 @@ def main() -> None:
     default_output = project_root / "data" / "output"
 
     functions_path = (
-        Path(args.functions).resolve()
-        if args.functions
-        else (
-            default_input
-            / "function_definitions"
-            / "function_definitions.json"
-        )
+        Path(args.functions_definition).resolve()
+        if args.functions_definition
+        else default_input / "functions_definition.json"
     )
     prompts_path = (
-        Path(args.prompts).resolve()
-        if args.prompts
-        else (
-            default_input
-            / "function_call_prompts"
-            / "function_calling_tests.json"
-        )
+        Path(args.input).resolve()
+        if args.input
+        else default_input / "function_calling_tests.json"
     )
     output_path = (
         Path(args.output).resolve()

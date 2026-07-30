@@ -43,8 +43,8 @@ Python 3.12+ required. Package manager is `uv` (not pip). The `llm_sdk` package 
 
 ## Data Flow
 
-`data/input/function_definitions/function_definitions.json` — 5 hardcoded functions the model can call.
-`data/input/function_call_prompts/function_calling_tests.json` — 11 test prompts.
+`data/input/functions_definition.json` — 5 hardcoded functions the model can call.
+`data/input/function_calling_tests.json` — 11 test prompts.
 `data/output/function_calling_results.json` — written by `write_output` at the end of each run (gitignored).
 
 ## Conventions & Gotchas
