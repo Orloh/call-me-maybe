@@ -41,13 +41,13 @@ class ConstrainedGenerator:
         pda: JSONPushdownAutomaton,
         trie: PrefixTrie,
         token_to_decoded: dict[int, str],
-        debug: bool = False
+        trace: bool = False
     ) -> None:
         self.model = model
         self.pda = pda
         self.trie = trie
         self.token_to_decoded = token_to_decoded
-        self.tracer = GenerationTracer(enabled=debug)
+        self.tracer = GenerationTracer(enabled=trace)
 
     def generate(self, prompt: str, max_new_tokens: int = 500) -> str:
         """
@@ -86,6 +86,7 @@ class ConstrainedGenerator:
             self.tracer.log_step(
                 step=step + 1,
                 token=new_text_chunk,
+                token_id=next_token_id,
                 pda_before=pda_before,
                 pda_after=self.pda.state,
                 fsm_before=fsm_before,

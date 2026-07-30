@@ -5,7 +5,11 @@ from llm_sdk import Small_LLM_Model
 from src.trie import PrefixTrie
 from src.automata import JSONPushdownAutomaton, SchemaCompiler
 from src.schema import FunctionDefinition, FunctionCallResult
-from src.engine import ConstrainedGenerator, PromptBuilder
+from src.engine import (
+    ConstrainedGenerator,
+    MaxTokensExceededError,
+    PromptBuilder,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +24,7 @@ class FunctionCallingPipeline:
         trie: PrefixTrie,
         token_to_decoded: dict[int, str],
         available_functions: list[FunctionDefinition],
-        debug: bool = False
+        trace: bool = False
     ):
         self.model = model
         self.trie = trie
@@ -28,7 +32,7 @@ class FunctionCallingPipeline:
         self.router_table = SchemaCompiler.compile_router_table(
             available_functions
         )
-        self.debug = debug
+        self.trace = trace
 
     def process_prompt(
         self,
@@ -61,13 +65,27 @@ class FunctionCallingPipeline:
             router_pda,
             self.trie,
             self.token_to_decoded,
-            debug=self.debug
+            trace=self.trace
         )
 
-        router_json_str = (
-            router_gen.generate(router_prompt, max_new_tokens=50)
-            .strip()
-        )
+        router_json_str = ""
+        for attempt in range(2):
+            try:
+                router_json_str = (
+                    router_gen.generate(router_prompt, max_new_tokens=50)
+                    .strip()
+                )
+                break
+            except MaxTokensExceededError:
+                if attempt == 0:
+                    logger.warning("Router failed, retrying...")
+                    router_pda = JSONPushdownAutomaton(self.router_table)
+                    router_gen = ConstrainedGenerator(
+                        self.model, router_pda, self.trie,
+                        self.token_to_decoded, trace=self.trace
+                    )
+                else:
+                    raise
         logger.info("Router output: %s", router_json_str)
         selected_func_name = json.loads(router_json_str).get("name")
 
@@ -102,13 +120,29 @@ class FunctionCallingPipeline:
             extractor_pda,
             self.trie,
             self.token_to_decoded,
-            debug=self.debug
+            trace=self.trace
         )
 
-        extractor_json_str = extractor_gen.generate(
-            extractor_prompt,
-            max_new_tokens=300
-        ).strip()
+        extractor_json_str = ""
+        for attempt in range(2):
+            try:
+                extractor_json_str = (
+                    extractor_gen.generate(
+                        extractor_prompt, max_new_tokens=300
+                    )
+                    .strip()
+                )
+                break
+            except MaxTokensExceededError:
+                if attempt == 0:
+                    logger.warning("Extractor failed, retrying...")
+                    extractor_pda = JSONPushdownAutomaton(extractor_table)
+                    extractor_gen = ConstrainedGenerator(
+                        self.model, extractor_pda, self.trie,
+                        self.token_to_decoded, trace=self.trace
+                    )
+                else:
+                    raise
         logger.info("Extractor output: %s", extractor_json_str)
         extracted_parameters = json.loads(extractor_json_str)
 

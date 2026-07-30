@@ -1,5 +1,7 @@
 import argparse
 import logging
+import signal
+import sys
 from pathlib import Path
 
 from src.io_manager import (
@@ -22,7 +24,7 @@ def main() -> None:
         description="Run the Function Calling Pipeline."
     )
     parser.add_argument(
-        "--debug",
+        "--trace",
         action="store_true",
         help="Enable step-by-step PDA/FSM tracing in the terminal."
     )
@@ -88,10 +90,22 @@ def main() -> None:
         trie=trie,
         token_to_decoded=token_to_decoded,
         available_functions=available_functions,
-        debug=args.debug
+        trace=args.trace
     )
 
-    results = []
+    results: list = []
+
+    def _handle_interrupt(sig: int, frame: object) -> None:
+        logger.info("Interrupted by user. Saving partial results...")
+        if results:
+            write_output(results, output_path)
+            logger.info(
+                "Saved %d results to %s", len(results), output_path
+            )
+        sys.exit(0)
+
+    signal.signal(signal.SIGINT, _handle_interrupt)
+
     logger.info(f"Strating generating loop for {len(prompt_items)} prompts...")
 
     for i, item in enumerate(prompt_items, 1):

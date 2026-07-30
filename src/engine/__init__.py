@@ -1,10 +1,11 @@
 from .bootstrap import initialize_system_dependencies
-from .generator import ConstrainedGenerator
+from .generator import ConstrainedGenerator, MaxTokensExceededError
 from .prompt_builder import PromptBuilder
 from .pipeline import FunctionCallingPipeline
 
 __all__ = [
     "ConstrainedGenerator",
+    "MaxTokensExceededError",
     "PromptBuilder",
     "FunctionCallingPipeline",
     "initialize_system_dependencies"

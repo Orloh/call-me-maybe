@@ -33,6 +33,7 @@ class GenerationTracer:
         self,
         step: int,
         token: str,
+        token_id: int,
         pda_before: Any,
         pda_after: Any,
         fsm_before: Any,
@@ -47,7 +48,7 @@ class GenerationTracer:
         f_after = self._get_name(fsm_after)
 
         print(
-            f"[{step:02d} Token{repr(token):<8} | "
+            f"[{step:02d} Token{repr(token):<8} ID:{token_id:<6} | "
             f"PDA: {p_before:<24} -> {p_after:<24} | |"
             f"FSM: {f_before:<16} -> {f_after:<16} | |"
             f"Keys Left: {keys_left}"
