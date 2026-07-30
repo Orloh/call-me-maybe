@@ -19,7 +19,7 @@ endif
 
 
 # RULES
-.PHONY: all install run debug trace clean lint lint-strict
+.PHONY: all install run debug trace test test-all clean lint lint-strict
 
 all: install run
 
@@ -44,6 +44,12 @@ trace:
 	clear
 	@echo "$(BGREEN)Running the main script with per-token PDA/FSM tracing...$(RESET)"
 	$(CUDA_PREFIX) $(RUN) -m $(SRC) --trace
+
+test:
+	$(RUN) -m pytest
+
+test-all:
+	$(RUN) -m pytest -m benchmark -s
 
 clean:
 	@echo "$(YELLOW)Cleaning temporary files and caches...$(RESET)"
