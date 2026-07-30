@@ -19,7 +19,7 @@ endif
 
 
 # RULES
-.PHONY: all install run debug trace test test-all clean lint lint-strict
+.PHONY: all install run debug trace test benchmark clean lint lint-strict
 
 all: install run
 
@@ -48,8 +48,8 @@ trace:
 test:
 	$(RUN) -m pytest
 
-test-all:
-	$(RUN) -m pytest -m benchmark -s
+benchmark:
+	$(RUN) -m pytest -o "addopts=" -m benchmark -s
 
 clean:
 	@echo "$(YELLOW)Cleaning temporary files and caches...$(RESET)"
