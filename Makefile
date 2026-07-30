@@ -30,9 +30,8 @@ run: install
 
 debug: install
 	clear
-	@echo "(BGREEN)Running the main script with PDA/FSM tracing enabled...$(RESET)"
-	CUDA_VISIBLE_DEVICES="" $(RUN) -m $(SRC) --debug
-	# $(RUN) -m pdb -m $(SRC)
+	@echo "$(BGREEN)Running the main script in debug mode...$(RESET)"
+	CUDA_VISIBLE_DEVICES="" $(RUN) -m pdb -m $(SRC) --debug
 
 clean:
 	@echo "$(YELLOW)Cleaning temporary files and caches...$(RESET)"
