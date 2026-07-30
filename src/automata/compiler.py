@@ -30,6 +30,14 @@ def _make_exact_match_factory(names: list[str]) -> Callable[[], BaseFSM]:
 
 
 class SchemaCompiler:
+    """
+    Utility class that compiles FunctionDefinition pydantic models into
+    PDA-compatible routing tables.
+
+    Each method produces a CompiledSchema — a dict mapping JSON keys to
+    either FSM factories or NestedObjectSchema wrappers — used by the
+    JSONPushdownAutomaton during constrained generation.
+    """
     def __init__(self) -> None:
         """
         Prevents instantiation of utility class.

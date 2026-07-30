@@ -35,6 +35,21 @@ class FunctionCallingPipeline:
         user_prompt: str,
         available_functions: list[FunctionDefinition]
     ) -> FunctionCallResult:
+        """
+        Run the two-phase generation pipeline for a single user prompt.
+
+        Phase 1 (routing) generates the function name.
+        Phase 2 (extraction) generates the parameter JSON for the chosen
+        function.
+
+        Args:
+            user_prompt: The natural-language user request.
+            available_functions: The list of callable function definitions.
+
+        Returns:
+            A FunctionCallResult with the selected function name
+            and extracted parameters.
+        """
         # PHASE 1: Function Routing
         router_prompt = (
             PromptBuilder

@@ -6,14 +6,17 @@ from src.schema import FunctionCallResult, FunctionDefinition, PromptItem
 
 
 class SchemaValidationError(Exception):
+    """Raised when the JSON content does not match the expected schema."""
     pass
 
 
 class InputFileNotFoundError(Exception):
+    """Raised when the requested input file does not exist on disk."""
     pass
 
 
 class JSONParsingError(Exception):
+    """Raised when the input file contains invalid JSON syntax."""
     pass
 
 
@@ -31,6 +34,21 @@ logger = logging.getLogger(__name__)
 
 
 def load_function_definitions(filepath: Path) -> list[FunctionDefinition]:
+    """
+    Load and validate a JSON file containing function definitions.
+
+    Args:
+        filepath: Path to the JSON file.
+
+    Returns:
+        A list of validated FunctionDefinition objects.
+
+    Raises:
+        InputFileNotFoundError: If the file does not exist.
+        PermissionDeniedError: If the application lacks read permissions.
+        JSONParsingError: If the file contains invalid JSON.
+        SchemaValidationError: If the content fails pydantic validation.
+    """
     try:
         with open(filepath, "r", encoding="utf-8") as file:
             data = json.load(file)
@@ -76,6 +94,21 @@ def load_function_definitions(filepath: Path) -> list[FunctionDefinition]:
 
 
 def load_prompts(filepath: Path) -> list[PromptItem]:
+    """
+    Load and validate a JSON file containing prompt items.
+
+    Args:
+        filepath: Path to the JSON file.
+
+    Returns:
+        A list of validated PromptItem objects.
+
+    Raises:
+        InputFileNotFoundError: If the file does not exist.
+        PermissionDeniedError: If the application lacks read permissions.
+        JSONParsingError: If the file contains invalid JSON.
+        SchemaValidationError: If the content fails pydantic validation.
+    """
     try:
         with open(filepath, "r", encoding="utf-8") as file:
             data = json.load(file)
