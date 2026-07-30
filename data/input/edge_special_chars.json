@@ -1,0 +1,17 @@
+[
+  {
+    "prompt": "Reverse the string \"hello\""
+  },
+  {
+    "prompt": "Greet José"
+  },
+  {
+    "prompt": "Add 1.5 and 2.5"
+  },
+  {
+    "prompt": "Square root of -9"
+  },
+  {
+    "prompt": "Replace 'special chars: $@#!' with 'x'"
+  }
+]

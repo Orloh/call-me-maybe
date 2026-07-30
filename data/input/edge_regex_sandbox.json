@@ -1,0 +1,17 @@
+[
+  {
+    "prompt": "Replace all digits in 'abc123def456' with ''"
+  },
+  {
+    "prompt": "Replace all uppercase letters in 'Hello World' with X"
+  },
+  {
+    "prompt": "Replace '   ' (three spaces) with a tab"
+  },
+  {
+    "prompt": "Replace all newlines in 'line1\nline2' with comma"
+  },
+  {
+    "prompt": "Replace 'cat' with '' in 'catalog category catalyst'"
+  }
+]

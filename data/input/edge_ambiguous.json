@@ -1,0 +1,17 @@
+[
+  {
+    "prompt": "What is 10 plus 20?"
+  },
+  {
+    "prompt": "Greet me"
+  },
+  {
+    "prompt": "Hello"
+  },
+  {
+    "prompt": "Calculate the square root of 25 then reverse the result"
+  },
+  {
+    "prompt": "Process this data"
+  }
+]
