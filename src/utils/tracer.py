@@ -49,8 +49,8 @@ class GenerationTracer:
 
         print(
             f"[{step:02d} Token{repr(token):<8} ID:{token_id:<6} | "
-            f"PDA: {p_before:<24} -> {p_after:<24} | |"
-            f"FSM: {f_before:<16} -> {f_after:<16} | |"
+            f"PDA: {p_before:<24} -> {p_after:<24} | "
+            f"FSM: {f_before:<16} -> {f_after:<16} | "
             f"Keys Left: {keys_left}"
         )
 
