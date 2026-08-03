@@ -29,6 +29,10 @@ make install
 This runs `uv sync --link-mode copy`, which installs dependencies and configures the local `llm_sdk` package as an editable dependency.
 
 ### Running
+```bash
+make run
+```
+Or :
 
 ```bash
 uv run python -m src
