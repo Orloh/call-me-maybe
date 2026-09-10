@@ -1,5 +1,7 @@
 # VARIABLES
 
+export HF_HOME = $(PWD)/.hf_cache
+
 SRC = src
 
 RUN = uv run python
@@ -30,7 +32,7 @@ install:
 	fi
 	@echo "$(BGREEN)Installing project dependencies using uv...$(RESET)"; \
 	
-	uv sync --link-mode copy
+	uv sync --no-cache
 
 run: install
 	clear && $(CUDA_PREFIX) $(RUN) -m $(SRC)
