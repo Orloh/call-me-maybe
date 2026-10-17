@@ -1,0 +1,44 @@
+[
+  {
+    "name": "fn_sum_list",
+    "description": "Add every number in a list and return the total.",
+    "parameters": {
+      "numbers": {
+        "type": "array"
+      }
+    },
+    "returns": {
+      "type": "number"
+    }
+  },
+  {
+    "name": "fn_greet_all",
+    "description": "Greet every person named in a list.",
+    "parameters": {
+      "names": {
+        "type": "array"
+      }
+    },
+    "returns": {
+      "type": "string"
+    }
+  },
+  {
+    "name": "fn_replace_all",
+    "description": "Apply one regex replacement across a list of strings.",
+    "parameters": {
+      "source_strings": {
+        "type": "array"
+      },
+      "pattern": {
+        "type": "string"
+      },
+      "replacement": {
+        "type": "string"
+      }
+    },
+    "returns": {
+      "type": "array"
+    }
+  }
+]

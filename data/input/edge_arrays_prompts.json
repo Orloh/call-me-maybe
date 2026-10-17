@@ -1,0 +1,17 @@
+[
+  {
+    "prompt": "Add the numbers 1, 2, 3 and 4"
+  },
+  {
+    "prompt": "Sum all values in [10, 20, 30]"
+  },
+  {
+    "prompt": "Greet Alice, Bob and Carol"
+  },
+  {
+    "prompt": "Reverse the list of strings ['ab', 'cd']"
+  },
+  {
+    "prompt": "Replace all digits in the list ['a1', 'b2', 'c3'] with X"
+  }
+]
