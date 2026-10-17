@@ -139,6 +139,53 @@ def test_e2e_deterministic_synthetic_vocab() -> None:
     )
 
 
+_DETERMINISTIC_ARRAY_VOCAB = {
+    "{": 0,
+    '"nums"': 1,
+    ":": 2,
+    "[": 3,
+    "1,2]": 4,   # both elements plus the array close, one token
+    "}": 5,
+}
+
+
+def _array_fn_schema() -> FunctionDefinition:
+    return FunctionDefinition(
+        name="fn_sum_list",
+        description="Add a list of numbers.",
+        parameters={
+            "nums": ParameterField(
+                type="array", items=ParameterField(type="number")
+            )
+        },
+        returns=ParameterField(type="number"),
+    )
+
+
+def test_e2e_deterministic_array_synthetic_vocab() -> None:
+    """
+    Full generation loop for an array parameter with a deterministic vocab:
+    proves the trie/DFS/PDA accept `[`, commas, and `]` and that the decoded
+    output is parseable JSON with a list value.
+    """
+    trie = _build_trie(_DETERMINISTIC_ARRAY_VOCAB)
+    model = _ScriptedModel(_DETERMINISTIC_ARRAY_VOCAB)
+    token_to_decoded = {
+        v: k for k, v in _DETERMINISTIC_ARRAY_VOCAB.items()
+    }
+
+    extractor_schema = SchemaCompiler.compile_extractor_table(
+        _array_fn_schema()
+    )
+    pda = JSONPushdownAutomaton(extractor_schema)
+    gen = ConstrainedGenerator(model, pda, trie, token_to_decoded)
+
+    output = gen.generate("ignored", max_new_tokens=20)
+    parsed = json.loads(output)
+
+    assert parsed == {"nums": [1, 2]}
+
+
 # ---------------------------------------------------------------------------
 # Test 2: Phase 1 routing with the real Qwen vocab
 # ---------------------------------------------------------------------------

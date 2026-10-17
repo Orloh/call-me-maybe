@@ -1,6 +1,6 @@
 import pytest
 from src.schema import FunctionDefinition, ParameterField
-from src.automata import SchemaCompiler, NumberFSM, StringLiteralFSM, ExactMatchFSM, UnsupportedSchemaTypeError
+from src.automata import SchemaCompiler, NumberFSM, StringLiteralFSM, ExactMatchFSM, UnsupportedSchemaTypeError, ArraySpec
 
 
 def test_compile_extractor_table():
@@ -61,6 +61,30 @@ def test_compile_router_table():
     assert '"fn_add"' in name_fsm.active_candidates
     assert '"fn_subtract"' in name_fsm.active_candidates
     assert '"none"' in name_fsm.active_candidates
+
+
+def test_compile_extractor_table_with_array():
+    """
+    Proves that array parameters compile to an ArraySpec wrapping the
+    element FSM factory, while scalar parameters stay plain factories.
+    """
+    mock_tool = FunctionDefinition(
+        name="fn_sum_list",
+        description="Adds a list of numbers.",
+        parameters={
+            "numbers": ParameterField(
+                type="array", items=ParameterField(type="number")
+            ),
+            "label": ParameterField(type="string"),
+        },
+        returns=ParameterField(type="number")
+    )
+
+    routing_table = SchemaCompiler.compile_extractor_table(mock_tool)
+
+    assert isinstance(routing_table["numbers"], ArraySpec)
+    assert isinstance(routing_table["numbers"].item(), NumberFSM)
+    assert callable(routing_table["label"])
 
 
 def test_schema_compiler_raises_on_invalid_type():

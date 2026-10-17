@@ -124,6 +124,24 @@ The trie stores the model's entire vocabulary as character-level paths. It is bu
 
 Routing and extraction are separated into two generation calls with distinct PDAs. This keeps each grammar tight: the router PDA only accepts `{"name": "fn_x"}` or `{"name": "none"}`, while the extractor PDA only accepts the chosen function's parameter schema. A single-shot approach would require a more complex PDA supporting nested objects.
 
+### Arrays of Scalars
+
+Parameters may be arrays of scalars, declared JSON-Schema style:
+
+```json
+{
+  "numbers": { "type": "array", "items": { "type": "number" } }
+}
+```
+
+The extractor PDA accepts `[]`, `[v]`, and `[v,v,...]` for any scalar element
+type (`number`, `string`, `boolean`, `null`). Empty arrays are allowed and
+there is no item-count bound. Nested arrays are intentionally rejected at
+schema validation, so the PDA never needs a stack of element types. A new
+`EXPECTING_ARRAY_START` state and the previously dead `Scope.ARRAY` frame now
+carry the element FSM; `array_just_opened` distinguishes an empty `[]` from a
+rejected trailing comma (`[1,]`).
+
 ### PDA over Regex
 
 A pushdown automaton was chosen over regex-based generation because regex cannot enforce balanced brackets, key ordering, or schema-level constraints (e.g., required keys must appear before closing `}`). The PDA's stack naturally handles nested objects and maintains `remaining_keys` for completeness checking.
@@ -184,7 +202,8 @@ The model computes answers instead of extracting arguments for `fn_reverse_strin
 - **FSM tests**: NumberFSM (integer/number modes, edge cases), StringLiteralFSM (escapes, hex), ExactMatchFSM (candidate filtering)
 - **Trie tests**: insertion, lookup, build from vocab
 - **DFS tests**: token masking correctness, clone count benchmarks
-- **Schema compiler tests**: router/extractor table compilation, type mapping
+- **Schema compiler tests**: router/extractor table compilation, type mapping, array `ArraySpec` mapping
+- **Array tests** (`test_arrays.py`): array schema validation, compiler mapping, PDA accept/reject (`[]`, `[1,2]`, `[1,]`, type mismatch)
 - **Engine tests**: generation loop, fast-forward, token selection
 - **CLI error-handling tests** (`test_main_errors.py`): load errors exit 2 before bootstrap, per-prompt failures are isolated and recorded, exit codes 0/1/2
 

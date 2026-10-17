@@ -11,7 +11,9 @@ from .primitives import (
 from .compiler import (
     SchemaCompiler,
     UnsupportedSchemaTypeError,
-    CompiledSchema
+    CompiledSchema,
+    ArraySpec,
+    ValueSpec
 )
 
 from .pda import PDAState, JSONPushdownAutomaton, Scope
@@ -26,6 +28,8 @@ __all__ = [
     "ExactMatchState",
     "SchemaCompiler",
     "CompiledSchema",
+    "ArraySpec",
+    "ValueSpec",
     "UnsupportedSchemaTypeError",
     "PDAState",
     "JSONPushdownAutomaton",

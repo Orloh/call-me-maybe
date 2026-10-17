@@ -4,7 +4,10 @@
     "description": "Add every number in a list and return the total.",
     "parameters": {
       "numbers": {
-        "type": "array"
+        "type": "array",
+        "items": {
+          "type": "number"
+        }
       }
     },
     "returns": {
@@ -16,7 +19,10 @@
     "description": "Greet every person named in a list.",
     "parameters": {
       "names": {
-        "type": "array"
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
       }
     },
     "returns": {
@@ -28,7 +34,10 @@
     "description": "Apply one regex replacement across a list of strings.",
     "parameters": {
       "source_strings": {
-        "type": "array"
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
       },
       "pattern": {
         "type": "string"
@@ -38,7 +47,7 @@
       }
     },
     "returns": {
-      "type": "array"
+      "type": "string"
     }
   }
 ]

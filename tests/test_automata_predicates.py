@@ -19,6 +19,7 @@ import copy
 import pytest
 
 from src.automata import (
+    ArraySpec,
     CompiledSchema,
     ExactMatchFSM,
     JSONPushdownAutomaton,
@@ -31,6 +32,7 @@ _SCHEMA: CompiledSchema = {
     "name": StringLiteralFSM,
     "a": NumberFSM,
     "b": lambda: ExactMatchFSM(["true", "false"]),
+    "nums": ArraySpec(item=NumberFSM),
 }
 
 # Chars that exercise every grammar branch: structure, whitespace,
@@ -38,6 +40,20 @@ _SCHEMA: CompiledSchema = {
 _PROBES = [
     "{", "}", "[", "]", '"', ":", ",", " ", "\n", "\t", "\r",
     "a", "n", "0", "5", "9", ".", "-", "\\", "x", "Ġ", "é", "\x01", "t",
+]
+
+# Array prefixes parking the PDA in every array-relevant position:
+# before the bracket, just opened, first element, after a comma, closing.
+_ARRAY_PREFIXES = [
+    '{"nums":',
+    '{"nums":[',
+    '{"nums":[]',
+    '{"nums":[1',
+    '{"nums":[1,',
+    '{"nums":[1,2',
+    '{"nums":[1,2]',
+    '{"nums":[1,2],',
+    '{"name":"x","a":12,"b":true,"nums":[1,2]}',
 ]
 
 # PDA prefixes that park the automaton in every reachable state:
@@ -58,8 +74,8 @@ _PDA_PREFIXES = [
     '{"name":"x","a":1.',
     '{"name":"x","a":12,',
     '{"name":"x","a":12,"b":tru',
-    '{"name":"x","a":12,"b":true}',
-]
+    '{"name":"x","a":12,"b":true,"nums":[]}',
+] + _ARRAY_PREFIXES
 
 
 def _drive_pda(prefix: str) -> JSONPushdownAutomaton:

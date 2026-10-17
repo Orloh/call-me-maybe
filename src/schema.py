@@ -1,17 +1,36 @@
 from typing import Any, Literal
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 
 
 AllowedTypes = Literal[
-    "string", "number", "integer", "float", "boolean", "null"
+    "string", "number", "integer", "float", "boolean", "null", "array"
 ]
 
 
 class ParameterField(BaseModel):
-    """Represents the type definition of a specific parameter."""
+    """Represents the type definition of a specific parameter.
+
+    Scalars use only ``type``. Arrays add ``items`` describing the single
+    scalar element type; nested arrays are intentionally unsupported.
+    """
     model_config = ConfigDict(extra='forbid')
 
     type: AllowedTypes
+    items: "ParameterField | None" = None
+
+    @model_validator(mode="after")
+    def _validate_items(self) -> "ParameterField":
+        if self.type == "array":
+            if self.items is None:
+                raise ValueError("array parameters require an 'items' field")
+            if self.items.type == "array":
+                raise ValueError("nested arrays are not supported")
+        elif self.items is not None:
+            raise ValueError("'items' is only valid for array parameters")
+        return self
+
+
+ParameterField.model_rebuild()
 
 
 class FunctionDefinition(BaseModel):

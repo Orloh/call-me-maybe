@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Callable
 from .primitives import (
     BaseFSM,
@@ -5,10 +6,18 @@ from .primitives import (
     StringLiteralFSM,
     ExactMatchFSM
 )
-from src.schema import FunctionDefinition
+from src.schema import FunctionDefinition, ParameterField
 
 
-type CompiledSchema = dict[str, Callable[[], BaseFSM]]
+@dataclass(frozen=True)
+class ArraySpec:
+    """Describes an array parameter: the FSM factory of its element type."""
+    item: Callable[[], BaseFSM]
+
+
+type ValueSpec = Callable[[], BaseFSM] | ArraySpec
+
+type CompiledSchema = dict[str, ValueSpec]
 
 
 class UnsupportedSchemaTypeError(Exception):
@@ -78,7 +87,7 @@ class SchemaCompiler:
         routing_table: CompiledSchema = {}
 
         for param_key, param_field in tool.parameters.items():
-            routing_table[param_key] = cls._map_type_to_fsm(param_field.type)
+            routing_table[param_key] = cls._compile_field(param_field)
 
         return routing_table
 
@@ -98,8 +107,7 @@ class SchemaCompiler:
             valid_function_names.append(f'"{tool.name}"')
 
             for param_key, param_field in tool.parameters.items():
-                fsm_factory = cls._map_type_to_fsm(param_field.type)
-                routing_table[param_key] = fsm_factory
+                routing_table[param_key] = cls._compile_field(param_field)
 
         if valid_function_names:
             routing_table["name"] = _make_exact_match_factory(
@@ -107,6 +115,20 @@ class SchemaCompiler:
             )
 
         return routing_table
+
+    @classmethod
+    def _compile_field(cls, field: ParameterField) -> ValueSpec:
+        """
+        Translates a ParameterField into a ValueSpec: either a scalar FSM
+        factory or an ArraySpec wrapping the element FSM factory.
+        """
+        if field.type == "array":
+            if field.items is None:
+                raise UnsupportedSchemaTypeError(
+                    "Fatal internal error: array parameter without 'items'."
+                )
+            return ArraySpec(item=cls._map_type_to_fsm(field.items.type))
+        return cls._map_type_to_fsm(field.type)
 
     @staticmethod
     def _map_type_to_fsm(data_type: str) -> Callable[[], BaseFSM]:

@@ -23,9 +23,20 @@ from src.app import (
 from src.schema import FunctionCallResult
 
 _DATA_INPUT = Path(__file__).resolve().parent.parent / "data" / "input"
-_ARRAY_FUNCTIONS = _DATA_INPUT / "edge_arrays_functions.json"
 _ARRAY_PROMPTS = _DATA_INPUT / "edge_arrays_prompts.json"
 _VALID_FUNCTIONS = _DATA_INPUT / "functions_definition.json"
+
+
+def _write_invalid_array_functions(path: Path) -> None:
+    path.write_text(
+        json.dumps([{
+            "name": "fn_bad",
+            "description": "array without items",
+            "parameters": {"xs": {"type": "array"}},
+            "returns": {"type": "number"},
+        }]),
+        encoding="utf-8",
+    )
 
 
 def _fake_bootstrap() -> tuple[MagicMock, MagicMock, dict[int, str]]:
@@ -62,17 +73,20 @@ def _write_prompts(path: Path, prompts: list[str]) -> None:
     )
 
 
-def test_array_functions_fail_at_startup_without_bootstrap(
+def test_invalid_schema_fails_at_startup_without_bootstrap(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setattr(app, "initialize_system_dependencies",
                         _fail_if_bootstrapped)
 
+    bad_functions = tmp_path / "bad_functions.json"
+    _write_invalid_array_functions(bad_functions)
+
     output = tmp_path / "results.json"
     errors = tmp_path / "errors.json"
-    config = RunConfig(_ARRAY_FUNCTIONS, _ARRAY_PROMPTS, output, errors)
+    config = RunConfig(bad_functions, _ARRAY_PROMPTS, output, errors)
 
-    assert run(config) == EXIT_STARTUP_ERROR
+    assert run(config, handle_signals=False) == EXIT_STARTUP_ERROR
     assert not output.exists()
     assert not errors.exists()
 

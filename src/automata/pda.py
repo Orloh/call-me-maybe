@@ -1,6 +1,7 @@
 from enum import Enum, auto
+from typing import Callable
 from .primitives import BaseFSM, ExactMatchFSM
-from .compiler import CompiledSchema
+from .compiler import ArraySpec, CompiledSchema
 
 
 class Scope(Enum):
@@ -33,6 +34,7 @@ class JSONPushdownAutomaton:
     # Structural Grammar Definitions
     CHAR_OBJECT_START = frozenset("{")
     CHAR_ARRAY_START = frozenset("[")
+    CHAR_ARRAY_CLOSE = frozenset("]")
     CHAR_KEY_QUOTE = frozenset('"')
     CHAR_COLON = frozenset(":")
     CHAR_COMMA = frozenset(",")
@@ -49,6 +51,9 @@ class JSONPushdownAutomaton:
         self.schema = compiled_schema
         self.current_key: str = ""
         self.remaining_keys: set[str] = set(self.schema.keys())
+        self.array_item_factory: Callable[[], BaseFSM] | None = None
+        self.pending_array_item_factory: Callable[[], BaseFSM] | None = None
+        self.array_just_opened: bool = False
 
     def advance(self, char: str) -> bool:
         """
@@ -103,19 +108,35 @@ class JSONPushdownAutomaton:
             case PDAState.EXPECTING_COLON:
                 return char == ":"
 
+            case PDAState.EXPECTING_ARRAY_START:
+                return char == "["
+
             case PDAState.EXPECTING_VALUE:
-                # _on_value routes through the fresh FSM for current_key;
-                # on a fresh FSM, advance() ≡ accepts_char().
-                fsm_factory = self.schema.get(self.current_key)
-                if fsm_factory is None:
-                    return False
-                return fsm_factory().accepts_char(char)
+                return self._value_accepts(char)
 
             case PDAState.EXPECTING_COMMA_OR_END:
                 return self._comma_or_end_accepts(char)
 
             case _:
                 return False
+
+    def _value_accepts(self, char: str) -> bool:
+        """
+        Non-mutating mirror of _on_value() for the current value context,
+        which is either an open array element or an object field.
+        """
+        if self.stack and self.stack[-1] == Scope.ARRAY:
+            if char == "]" and self.array_just_opened:
+                return True
+            factory = self.array_item_factory
+            return factory is not None and factory().accepts_char(char)
+
+        spec = self.schema.get(self.current_key)
+        if spec is None:
+            return False
+        if isinstance(spec, ArraySpec):
+            return char == "["
+        return spec().accepts_char(char)
 
     def _comma_or_end_accepts(self, char: str) -> bool:
         """
@@ -148,6 +169,9 @@ class JSONPushdownAutomaton:
         new.schema = self.schema
         new.current_key = self.current_key
         new.remaining_keys = set(self.remaining_keys)
+        new.array_item_factory = self.array_item_factory
+        new.pending_array_item_factory = self.pending_array_item_factory
+        new.array_just_opened = self.array_just_opened
         return new
 
     def _handle_fsm_input(self, char: str) -> bool:
@@ -183,6 +207,9 @@ class JSONPushdownAutomaton:
 
             case PDAState.EXPECTING_COLON:
                 return self._on_colon(char)
+
+            case PDAState.EXPECTING_ARRAY_START:
+                return self._on_array_start(char)
 
             case PDAState.EXPECTING_VALUE:
                 return self._on_value(char)
@@ -225,18 +252,45 @@ class JSONPushdownAutomaton:
 
     def _on_value(self, char: str) -> bool:
         """
-        Routes the value generation based on the current key.
-        Handles nested 'parameters' object structurally, and delegates
-        flat values to their respecctive FSMs based on the CompiledSchema.
+        Routes the value generation: array elements re-arm their element
+        FSM, object fields route through the CompiledSchema, and array
+        fields open a new array scope.
         """
-        try:
-            fsm_factory = self.schema[self.current_key]
-            self.active_fsm = fsm_factory()
+        if self.stack and self.stack[-1] == Scope.ARRAY:
+            if char == "]" and self.array_just_opened:
+                return self._on_comma_or_end(char)
+
+            factory = self.array_item_factory
+            if factory is None:
+                return False
+            self.array_just_opened = False
+            self.active_fsm = factory()
             self.state = PDAState.EXPECTING_COMMA_OR_END
             return self.active_fsm.advance(char)
 
-        except KeyError:
+        spec = self.schema.get(self.current_key)
+        if spec is None:
             return False
+
+        if isinstance(spec, ArraySpec):
+            self.pending_array_item_factory = spec.item
+            self.state = PDAState.EXPECTING_ARRAY_START
+            return self._on_array_start(char)
+
+        self.active_fsm = spec()
+        self.state = PDAState.EXPECTING_COMMA_OR_END
+        return self.active_fsm.advance(char)
+
+    def _on_array_start(self, char: str) -> bool:
+        """Opens a new array scope on '['."""
+        if char != "[":
+            return False
+        self.stack.append(Scope.ARRAY)
+        self.array_item_factory = self.pending_array_item_factory
+        self.pending_array_item_factory = None
+        self.array_just_opened = True
+        self.state = PDAState.EXPECTING_VALUE
+        return True
 
     def _on_comma_or_end(self, char: str) -> bool:
         """Handles structural continuation (,) or scope closures (}, ])."""
@@ -246,6 +300,7 @@ class JSONPushdownAutomaton:
                     return False
                 self.state = PDAState.EXPECTING_KEY
             elif self.stack[-1] == Scope.ARRAY:
+                self.array_just_opened = False
                 self.state = PDAState.EXPECTING_VALUE
             return True
 
@@ -293,6 +348,20 @@ class JSONPushdownAutomaton:
 
             case PDAState.EXPECTING_ARRAY_START:
                 return self.CHAR_ARRAY_START
+
+            case PDAState.EXPECTING_VALUE:
+                if self.stack and self.stack[-1] == Scope.ARRAY:
+                    factory = self.array_item_factory
+                    if factory is None:
+                        return self.CHARS_EMPTY
+                    allowed = set(factory().allowed_characters())
+                    if self.array_just_opened:
+                        allowed |= self.CHAR_ARRAY_CLOSE
+                    return allowed
+                spec = self.schema.get(self.current_key)
+                if isinstance(spec, ArraySpec):
+                    return self.CHAR_ARRAY_START
+                return self.CHARS_EMPTY
 
             case PDAState.EXPECTING_COMMA_OR_END:
                 if self.stack[-1] == Scope.OBJECT:
