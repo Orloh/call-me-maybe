@@ -18,10 +18,18 @@ class GenerationTracer:
 
         return str(obj)
 
+    def _emit(self, text: str) -> None:
+        try:
+            print(text)
+        except BrokenPipeError:
+            # A closed downstream reader (e.g. `... | head`) must not be
+            # mistaken for a generation failure; disable tracing instead.
+            self.enabled = False
+
     def start_trace(self, prompt: str) -> None:
         if not self.enabled:
             return
-        print(
+        self._emit(
             f"\n{'-'*90}\n"
             f"🔍 TRACE START"
             f"\n{'-'*90}\n"
@@ -47,7 +55,7 @@ class GenerationTracer:
         f_before = self._get_name(fsm_before)
         f_after = self._get_name(fsm_after)
 
-        print(
+        self._emit(
             f"[{step:02d} Token{repr(token):<8} ID:{token_id:<6} | "
             f"PDA: {p_before:<24} -> {p_after:<24} | "
             f"FSM: {f_before:<16} -> {f_after:<16} | "
@@ -57,7 +65,7 @@ class GenerationTracer:
     def end_trace(self) -> None:
         if not self.enabled:
             return
-        print(
+        self._emit(
             f"\n{'-'*90}\n"
             "✅ TRACE COMPLETE"
             f"\n{'-'*90}\n"

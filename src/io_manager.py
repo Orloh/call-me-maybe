@@ -74,12 +74,6 @@ def load_function_definitions(filepath: Path) -> list[FunctionDefinition]:
             f"Invalid JSON syntax in {filepath}: {error}"
         ) from error
 
-    except Exception:
-        logger.exception(
-            f"An unexpected error ocurred while loading {filepath}"
-        )
-        raise
-
     if not isinstance(data, list):
         raise SchemaValidationError(f"Root of {filepath} must be a JSON list")
 
@@ -134,12 +128,6 @@ def load_prompts(filepath: Path) -> list[PromptItem]:
             f"Invalid JSON syntax in {filepath}: {error}"
         ) from error
 
-    except Exception:
-        logger.exception(
-            f"An unexpected error ocurred while loading {filepath}"
-        )
-        raise
-
     if not isinstance(data, list):
         raise SchemaValidationError(f"Root of {filepath} must be a JSON list")
 
@@ -166,19 +154,17 @@ def _write_records(records: list[dict[str, Any]], filepath: Path) -> None:
     """
     try:
         filepath.parent.mkdir(parents=True, exist_ok=True)
-
-    except PermissionError as error:
-        raise PermissionDeniedError(
-            f"Permission denied creating directories for {filepath}"
-        ) from error
-
-    try:
         with open(filepath, "w", encoding="utf-8") as file:
             json.dump(records, file, indent=4)
 
     except PermissionError as error:
         raise PermissionDeniedError(
             f"Permission denied writing to: {filepath}"
+        ) from error
+
+    except OSError as error:
+        raise WriteOutputError(
+            f"Failed to write output to {filepath}: {error}"
         ) from error
 
     except Exception as error:

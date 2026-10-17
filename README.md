@@ -68,6 +68,10 @@ fails fast without paying for model startup. The results file keeps the
 same shape as always (successful calls only); failures are written to a
 separate `function_calling_errors.json`.
 
+Directory or non-UTF-8 input files, and output paths whose parent is a
+regular file, are reported as exit 2 rather than crashing. Ctrl-C saves
+partial results (and any recorded failures) before exiting 130.
+
 ### Debug Mode
 
 ```bash

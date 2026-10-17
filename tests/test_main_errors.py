@@ -5,6 +5,7 @@ Heavy dependencies (model bootstrap, pipeline) are monkeypatched away so
 these run without torch/transformers.
 """
 import json
+import signal
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -189,3 +190,111 @@ def test_parse_args_defaults_use_project_paths() -> None:
     assert config.prompts_path.name == "function_calling_tests.json"
     assert config.output_path.name == "function_calling_results.json"
     assert config.errors_path.name == "function_calling_errors.json"
+
+
+def test_directory_input_returns_startup_error(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(app, "initialize_system_dependencies",
+                        _fail_if_bootstrapped)
+
+    output = tmp_path / "results.json"
+    config = RunConfig(tmp_path, _ARRAY_PROMPTS, output, tmp_path / "e.json")
+
+    assert run(config, handle_signals=False) == EXIT_STARTUP_ERROR
+    assert not output.exists()
+
+
+def test_non_utf8_input_returns_startup_error(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(app, "initialize_system_dependencies",
+                        _fail_if_bootstrapped)
+
+    bad = tmp_path / "bad.json"
+    bad.write_bytes(b"\xff\xfe\x00\x01")
+
+    output = tmp_path / "results.json"
+    config = RunConfig(bad, _ARRAY_PROMPTS, output, tmp_path / "e.json")
+
+    assert run(config, handle_signals=False) == EXIT_STARTUP_ERROR
+    assert not output.exists()
+
+
+def test_output_parent_is_a_file_returns_startup_error(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    prompts = tmp_path / "prompts.json"
+    _write_prompts(prompts, ["one"])
+    outcomes: list[object] = [
+        FunctionCallResult(prompt="one", name="none", parameters={})
+    ]
+    monkeypatch.setattr(app, "initialize_system_dependencies", _fake_bootstrap)
+    _install_fake_pipeline(monkeypatch, outcomes)
+
+    blocker = tmp_path / "blocker"
+    blocker.write_text("not a directory", encoding="utf-8")
+    output = blocker / "results.json"
+    config = RunConfig(_VALID_FUNCTIONS, prompts, output, tmp_path / "e.json")
+
+    assert run(config, handle_signals=False) == EXIT_STARTUP_ERROR
+
+
+def test_save_partial_skips_empty_output(tmp_path: Path) -> None:
+    config = RunConfig(
+        _VALID_FUNCTIONS, _ARRAY_PROMPTS,
+        tmp_path / "results.json", tmp_path / "errors.json",
+    )
+
+    app._save_partial([], [], config)
+
+    assert not config.output_path.exists()
+    assert not config.errors_path.exists()
+
+
+def test_save_partial_writes_when_there_is_content(tmp_path: Path) -> None:
+    result = FunctionCallResult(prompt="x", name="none", parameters={})
+    config = RunConfig(
+        _VALID_FUNCTIONS, _ARRAY_PROMPTS,
+        tmp_path / "results.json", tmp_path / "errors.json",
+    )
+
+    app._save_partial([result], [], config)
+
+    assert len(json.loads(config.output_path.read_text(encoding="utf-8"))) == 1
+
+
+def test_run_restores_previous_sigint_handler(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    prompts = tmp_path / "prompts.json"
+    _write_prompts(prompts, [])
+    monkeypatch.setattr(app, "initialize_system_dependencies", _fake_bootstrap)
+    _install_fake_pipeline(monkeypatch, [])
+
+    before = signal.getsignal(signal.SIGINT)
+    config = RunConfig(
+        _VALID_FUNCTIONS, prompts,
+        tmp_path / "results.json", tmp_path / "errors.json",
+    )
+
+    assert run(config) == EXIT_SUCCESS
+    assert signal.getsignal(signal.SIGINT) == before
+
+
+def test_run_can_skip_signal_handling(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    prompts = tmp_path / "prompts.json"
+    _write_prompts(prompts, [])
+    monkeypatch.setattr(app, "initialize_system_dependencies", _fake_bootstrap)
+    _install_fake_pipeline(monkeypatch, [])
+
+    before = signal.getsignal(signal.SIGINT)
+    config = RunConfig(
+        _VALID_FUNCTIONS, prompts,
+        tmp_path / "results.json", tmp_path / "errors.json",
+    )
+
+    assert run(config, handle_signals=False) == EXIT_SUCCESS
+    assert signal.getsignal(signal.SIGINT) is before

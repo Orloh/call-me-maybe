@@ -259,6 +259,17 @@ def test_write_output_creates_directory(tmp_path: Path) -> None:
     assert nested_file.exists()
 
 
+def test_write_output_parent_is_a_file_raises_write_error(
+    tmp_path: Path
+) -> None:
+    """A file where a parent directory is expected maps to WriteOutputError."""
+    blocker = tmp_path / "blocker"
+    blocker.write_text("not a directory", encoding="utf-8")
+
+    with pytest.raises(WriteOutputError):
+        write_output(VALID_MOCK_RESULTS, blocker / "results.json")
+
+
 def test_write_output_permission_denied(tmp_path: Path) -> None:
     """Test that writing to a locked/read-only file raises a PermissionDeniedError"""
     test_file = tmp_path / "readonly_output.json"

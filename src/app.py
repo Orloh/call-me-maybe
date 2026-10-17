@@ -2,6 +2,7 @@ import argparse
 import logging
 import signal
 import sys
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
@@ -43,6 +44,8 @@ _INPUT_ERRORS = (
     JSONParsingError,
     SchemaValidationError,
 )
+
+_INPUT_READ_ERRORS = (OSError, UnicodeError, RecursionError)
 
 _WRITE_ERRORS = (WriteOutputError, PermissionDeniedError)
 
@@ -197,6 +200,10 @@ def _save(
         logger.error("Failed to write results to %s: %s",
                      config.output_path, error)
         ok = False
+    except Exception:
+        logger.exception("Unexpected error writing results to %s",
+                         config.output_path)
+        ok = False
 
     if failures:
         try:
@@ -205,13 +212,34 @@ def _save(
             logger.error("Failed to write errors to %s: %s",
                          config.errors_path, error)
             ok = False
+        except Exception:
+            logger.exception("Unexpected error writing errors to %s",
+                             config.errors_path)
+            ok = False
 
     return ok
 
 
-def run(config: RunConfig) -> int:
+def _save_partial(
+    results: list[FunctionCallResult],
+    failures: list[PromptFailure],
+    config: RunConfig,
+) -> None:
     """
-    Executes the pipeline for every prompt in `config`.
+    Persists partial output on interrupt, but never clobbers existing
+    output files with an empty result set.
+    """
+    if results or failures:
+        _save(results, failures, config)
+
+
+def _run_body(
+    config: RunConfig,
+    results: list[FunctionCallResult],
+    failures: list[PromptFailure],
+) -> int:
+    """
+    Core run: load inputs, bootstrap, then process every prompt.
 
     Inputs are loaded before the model is bootstrapped so that invalid
     input fails fast (exit 2) without paying for model startup. A failure
@@ -221,6 +249,13 @@ def run(config: RunConfig) -> int:
         available_functions, prompt_items = _load_inputs(config)
     except _INPUT_ERRORS as error:
         logger.error("Input error: %s", error)
+        return EXIT_STARTUP_ERROR
+    except _INPUT_READ_ERRORS as error:
+        logger.error("Input read error (%s): %s",
+                     type(error).__name__, error)
+        return EXIT_STARTUP_ERROR
+    except Exception:
+        logger.exception("Unexpected error while loading inputs")
         return EXIT_STARTUP_ERROR
 
     logger.info("Bootstrapping dependencies (Model & Prefix Trie)...")
@@ -243,16 +278,6 @@ def run(config: RunConfig) -> int:
     except Exception as error:
         logger.error("Pipeline initialization error: %s", error)
         return EXIT_STARTUP_ERROR
-
-    results: list[FunctionCallResult] = []
-    failures: list[PromptFailure] = []
-
-    def _handle_interrupt(sig: int, frame: object) -> None:
-        logger.info("Interrupted by user. Saving partial results...")
-        _save(results, failures, config)
-        sys.exit(EXIT_INTERRUPTED)
-
-    signal.signal(signal.SIGINT, _handle_interrupt)
 
     logger.info("Starting generation loop for %d prompt(s)...",
                 len(prompt_items))
@@ -286,10 +311,60 @@ def run(config: RunConfig) -> int:
     return EXIT_PROMPT_FAILURES if failures else EXIT_SUCCESS
 
 
+def run(config: RunConfig, *, handle_signals: bool = True) -> int:
+    """
+    Executes the pipeline for every prompt in `config`.
+
+    When `handle_signals` is set and we are on the main thread, a SIGINT
+    handler is installed for the duration of the run (so Ctrl-C saves
+    partial output and exits 130) and the previous handler is restored
+    afterwards. Off the main thread, signal registration is skipped.
+    """
+    results: list[FunctionCallResult] = []
+    failures: list[PromptFailure] = []
+
+    def _handle_interrupt(sig: int, frame: object) -> None:
+        logger.info("Interrupted by user. Saving partial results...")
+        try:
+            _save_partial(results, failures, config)
+        except Exception:  # pragma: no cover - best-effort save
+            logger.exception("Failed to save partial results")
+        sys.exit(EXIT_INTERRUPTED)
+
+    main_thread = threading.current_thread() is threading.main_thread()
+    if not (handle_signals and main_thread):
+        return _run_body(config, results, failures)
+
+    previous_handler = signal.getsignal(signal.SIGINT)
+    signal.signal(signal.SIGINT, _handle_interrupt)
+    try:
+        return _run_body(config, results, failures)
+    finally:
+        signal.signal(signal.SIGINT, previous_handler)
+
+
 def main() -> None:
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s - %(levelname)s - %(message)s",
     )
-    config = parse_args()
-    sys.exit(run(config))
+
+    try:
+        config = parse_args()
+    except SystemExit:
+        raise
+    except Exception as error:
+        logger.error("Failed to parse arguments: %s", error)
+        sys.exit(EXIT_STARTUP_ERROR)
+
+    try:
+        code = run(config)
+    except SystemExit:
+        raise
+    except BrokenPipeError:
+        code = EXIT_SUCCESS
+    except Exception:
+        logger.exception("Unexpected top-level error")
+        code = EXIT_STARTUP_ERROR
+
+    sys.exit(code)
