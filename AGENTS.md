@@ -8,10 +8,18 @@ From-scratch function-calling engine for Small Language Models. Uses constrained
 
 ```bash
 make install     # uv sync --link-mode copy (installs deps, auto-installs uv if missing)
-make run         # python -m src  (CUDA disabled via CUDA_VISIBLE_DEVICES="")
+make run         # python -m src (GPU-first)
+make run CPU=1   # python -m src with CUDA_VISIBLE_DEVICES="" (CPU-only machine)
 make debug       # same as run + --debug flag → per-token PDA/FSM trace in terminal
 make lint        # flake8 src + mypy src . --disallow-untyped-defs --check-untyped-defs ...
 make clean       # remove __pycache__, .pyc/.pyo, .mypy_cache, .pytest_cache
+```
+
+On a CPU-only machine, prefix ad-hoc commands with `CUDA_VISIBLE_DEVICES=""`
+or pass `CPU=1` to the make targets above, e.g.:
+
+```bash
+CUDA_VISIBLE_DEVICES="" uv run python -m src --input data/input/edge_floats.json
 ```
 
 No dedicated `make test` target — use `pytest` directly:

@@ -32,16 +32,23 @@ This runs `uv sync --link-mode copy`, which installs dependencies and configures
 ```bash
 make run
 ```
-Or :
+On a CPU-only machine, disable CUDA first:
 
 ```bash
-uv run python -m src
+make run CPU=1
+```
+
+`CPU=1` sets `CUDA_VISIBLE_DEVICES=""` for `run`, `debug`, and `trace`.
+The same can be done directly:
+
+```bash
+CUDA_VISIBLE_DEVICES="" uv run python -m src
 ```
 
 Or with custom paths:
 
 ```bash
-uv run python -m src \
+CUDA_VISIBLE_DEVICES="" uv run python -m src \
     --functions_definition data/input/functions_definition.json \
     --input data/input/function_calling_tests.json \
     --output data/output/function_calling_results.json \
