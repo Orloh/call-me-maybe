@@ -1,0 +1,23 @@
+[
+  {
+    "prompt": "Add 1.5 and 2.5"
+  },
+  {
+    "prompt": "Add 0.1 and 0.2"
+  },
+  {
+    "prompt": "Add 2 and 3"
+  },
+  {
+    "prompt": "Add -1.5 and 4.75"
+  },
+  {
+    "prompt": "What is the square root of 2.25?"
+  },
+  {
+    "prompt": "Calculate the square root of 0.25"
+  },
+  {
+    "prompt": "What is the square root of 16?"
+  }
+]
