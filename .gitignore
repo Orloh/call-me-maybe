@@ -3,6 +3,7 @@ pycache/
 __pycache__/
 .mypy_cache/
 .venv/
+.hf_cache/
 data/output
 *.pdf
 *.pdf:Zone.Identifier
