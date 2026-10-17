@@ -172,16 +172,14 @@ class NumberFSM(BaseFSM):
             # After "-", must have a digit
             return char.isdigit()
         elif self.state == NumberState.AFTER_ZERO:
-            # After "0", can only have ".", "e", "E", or terminator
+            # After "0", can only have "." or a terminator (exponents rejected)
             if self.mode == "integer":
                 return char in self.TERMINATORS
-            return (
-                char == "." or char in ("e", "E") or char in self.TERMINATORS
-            )
+            return char == "." or char in self.TERMINATORS
         elif self.state == NumberState.INTEGER_PART:
             if self.mode == "integer":
-                return char.isdigit() or char in ("e", "E")
-            return char.isdigit() or char == "." or char in ("e", "E")
+                return char.isdigit()
+            return char.isdigit() or char == "."
         elif self.state == NumberState.AFTER_DOT:
             # After ".", must have at least one digit
             return char.isdigit()

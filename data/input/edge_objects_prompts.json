@@ -1,0 +1,8 @@
+[
+  {
+    "prompt": "Configure a job with 3 retries, labels 'prod' and 'eu', and nested enabled"
+  },
+  {
+    "prompt": "Add the pairs (1, 2) and (3.5, 4.5)"
+  }
+]

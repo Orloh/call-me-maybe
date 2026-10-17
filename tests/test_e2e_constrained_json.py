@@ -186,6 +186,52 @@ def test_e2e_deterministic_array_synthetic_vocab() -> None:
     assert parsed == {"nums": [1, 2]}
 
 
+_DETERMINISTIC_OBJECT_VOCAB = {
+    "{": 0,
+    '"config"': 1,
+    ":": 2,
+    '"n"': 3,
+    "7}": 4,   # the value plus the nested object close, one token
+    "}": 5,
+}
+
+
+def _object_fn_schema() -> FunctionDefinition:
+    return FunctionDefinition(
+        name="fn_config",
+        description="Configure a job.",
+        parameters={
+            "config": ParameterField(
+                type="object",
+                properties={"n": ParameterField(type="integer")},
+            )
+        },
+        returns=ParameterField(type="integer"),
+    )
+
+
+def test_e2e_deterministic_nested_object_synthetic_vocab() -> None:
+    """
+    Full generation loop for a nested object parameter with a deterministic
+    vocab: proves the frame stack generates `{"config":{"n":7}}`.
+    """
+    trie = _build_trie(_DETERMINISTIC_OBJECT_VOCAB)
+    model = _ScriptedModel(_DETERMINISTIC_OBJECT_VOCAB)
+    token_to_decoded = {
+        v: k for k, v in _DETERMINISTIC_OBJECT_VOCAB.items()
+    }
+
+    extractor_schema = SchemaCompiler.compile_extractor_table(
+        _object_fn_schema()
+    )
+    pda = JSONPushdownAutomaton(extractor_schema)
+    gen = ConstrainedGenerator(model, pda, trie, token_to_decoded)
+
+    output = gen.generate("ignored", max_new_tokens=20)
+
+    assert json.loads(output) == {"config": {"n": 7}}
+
+
 # ---------------------------------------------------------------------------
 # Test 2: Phase 1 routing with the real Qwen vocab
 # ---------------------------------------------------------------------------

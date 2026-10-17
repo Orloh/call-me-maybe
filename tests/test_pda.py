@@ -1,7 +1,13 @@
 import pytest
 
-from src.automata import JSONPushdownAutomaton, PDAState, Scope, NumberFSM, StringLiteralFSM, ExactMatchFSM
-from src.automata.primitives import BaseFSM
+from src.automata import (
+    JSONPushdownAutomaton,
+    PDAState,
+    Scope,
+    NumberFSM,
+    StringLiteralFSM,
+    ExactMatchFSM,
+)
 
 
 @pytest.fixture
@@ -34,23 +40,25 @@ def test_pda_initialization(mock_schema):
     assert pda.state == PDAState.EXPECTING_OBJECT_START
     assert pda.allowed_characters() == frozenset("{")
     assert len(pda.stack) == 0
-    assert pda.remaining_keys == {"location", "days"}
+    assert pda.pending_fields == mock_schema
 
 
 def test_on_object_start_logic(mock_schema):
     pda = JSONPushdownAutomaton(mock_schema)
     pda.state = PDAState.EXPECTING_OBJECT_START
-    
+
     assert pda._on_object_start("{") is True
     assert pda.state == PDAState.EXPECTING_KEY
-    assert pda.stack[-1] == Scope.OBJECT
+    assert pda.stack[-1].scope == Scope.OBJECT
+    assert pda.stack[-1].remaining_required == {"location", "days"}
     assert pda._on_object_start("x") is False
 
 
 def test_on_key_logic(mock_schema):
     pda = JSONPushdownAutomaton(mock_schema)
+    pda.advance("{")
     pda.state = PDAState.EXPECTING_KEY
-    
+
     assert pda._on_key('"') is True
     assert pda.state == PDAState.EXPECTING_COLON
     assert isinstance(pda.active_fsm, ExactMatchFSM)
@@ -60,7 +68,7 @@ def test_on_key_logic(mock_schema):
 def test_on_colon_logic(mock_schema):
     pda = JSONPushdownAutomaton(mock_schema)
     pda.state = PDAState.EXPECTING_COLON
-    
+
     assert pda._on_colon(':') is True
     assert pda.state == PDAState.EXPECTING_VALUE
     assert pda._on_colon('x') is False
@@ -68,28 +76,28 @@ def test_on_colon_logic(mock_schema):
 
 def test_on_value_flat_routing(mock_schema):
     pda = JSONPushdownAutomaton(mock_schema)
-    pda.state = PDAState.EXPECTING_VALUE
-    pda.current_key = "days"
-    
+    for char in '{"days":':
+        assert pda.advance(char)
+
     # "days" expects a NumberFSM based on mock_schema
-    assert pda._on_value('5') is True
+    assert pda.advance('5') is True
     assert isinstance(pda.active_fsm, NumberFSM)
     assert pda.state == PDAState.EXPECTING_COMMA_OR_END
 
 
 def test_on_comma_or_end_logic(mock_schema):
     pda = JSONPushdownAutomaton(mock_schema)
-    pda.state = PDAState.EXPECTING_COMMA_OR_END
-    pda.stack.append(Scope.OBJECT)
-    
-    pda.remaining_keys = {"location"}
-    assert pda._on_comma_or_end(',') is True
+    for char in '{"location":"Madrid"':
+        assert pda.advance(char)
+
+    assert pda.advance(',') is True
     assert pda.state == PDAState.EXPECTING_KEY
- 
-    pda.state = PDAState.EXPECTING_COMMA_OR_END
-    pda.remaining_keys = set()
-    assert pda._on_comma_or_end('}') is True
-    assert len(pda.stack) == 0
+
+    for char in '"days":5':
+        assert pda.advance(char)
+
+    assert pda.advance('}') is True
+    assert pda.stack == []
     assert pda.state == PDAState.TERMINAL
 
 
@@ -98,7 +106,7 @@ def test_pda_accepts_curly_bracket(mock_schema):
     Proves the PDA starts in the correct state and accepts an opening brace.
     """
     pda = JSONPushdownAutomaton(mock_schema)
-    
+
     assert pda.state == PDAState.EXPECTING_OBJECT_START
     pda.advance("{")
     assert pda.state == PDAState.EXPECTING_KEY
@@ -115,7 +123,7 @@ def test_pda_valid_phase2_json(mock_schema):
 
     assert feed_string(pda, valid_json) is True
     assert pda.state == PDAState.TERMINAL
-    assert len(pda.remaining_keys) == 0
+    assert pda.stack == []
 
 
 def test_pda_rejects_hallucinated_keys(mock_schema):
@@ -124,12 +132,10 @@ def test_pda_rejects_hallucinated_keys(mock_schema):
     the branch is instantly pruned.
     """
     pda = JSONPushdownAutomaton(mock_schema)
-    
+
     # 'hallucination' is not in our mock_schema
     invalid_json = '{"hallucination": "fake_data"}'
-    
-    # The PDA should return False the moment it evaluates the colon
-    # and tries to look up the key.
+
     assert feed_string(pda, invalid_json) is False
 
 
@@ -148,9 +154,8 @@ def test_pda_rejects_invalid_types(mock_schema):
     Proves that the PDA strictly enforces the FSM data types.
     """
     pda = JSONPushdownAutomaton(mock_schema)
-    
+
     # 'days' expects a NumberFSM. We are giving it a string.
     invalid_json = '{"location": "Madrid", "days": "five"}'
-    
-    # It will fail exactly on the quote mark '"' because NumberFSM doesn't allow it.
+
     assert feed_string(pda, invalid_json) is False

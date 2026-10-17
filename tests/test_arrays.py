@@ -60,14 +60,17 @@ def test_items_forbidden_on_scalar() -> None:
         )
 
 
-def test_nested_arrays_rejected() -> None:
-    with pytest.raises(ValidationError):
-        ParameterField(
-            type="array",
-            items=ParameterField(
-                type="array", items=ParameterField(type="number")
-            ),
-        )
+def test_nested_arrays_allowed() -> None:
+    field = ParameterField(
+        type="array",
+        items=ParameterField(
+            type="array", items=ParameterField(type="number")
+        ),
+    )
+    assert field.items is not None
+    assert field.items.type == "array"
+    assert field.items.items is not None
+    assert field.items.items.type == "number"
 
 
 def test_valid_array_field() -> None:
@@ -152,12 +155,12 @@ def test_array_scope_is_pushed_and_popped() -> None:
     for char in '{"numbers":[':
         assert pda.advance(char)
 
-    assert pda.stack[-1] == Scope.ARRAY
+    assert pda.stack[-1].scope == Scope.ARRAY
 
     for char in '1,2]':
         assert pda.advance(char)
 
-    assert Scope.ARRAY not in pda.stack
+    assert all(frame.scope != Scope.ARRAY for frame in pda.stack)
 
 
 # ---------------------------------------------------------------------------

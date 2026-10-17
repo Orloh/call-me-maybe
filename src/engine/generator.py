@@ -91,7 +91,7 @@ class ConstrainedGenerator:
                 pda_after=self.pda.state,
                 fsm_before=fsm_before,
                 fsm_after=self.pda.active_fsm,
-                keys_left=len(self.pda.remaining_keys)
+                keys_left=self.pda.remaining_key_count()
             )
 
         self.tracer.end_trace()

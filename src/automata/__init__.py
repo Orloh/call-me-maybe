@@ -13,6 +13,7 @@ from .compiler import (
     UnsupportedSchemaTypeError,
     CompiledSchema,
     ArraySpec,
+    ObjectSpec,
     ValueSpec
 )
 
@@ -29,6 +30,7 @@ __all__ = [
     "SchemaCompiler",
     "CompiledSchema",
     "ArraySpec",
+    "ObjectSpec",
     "ValueSpec",
     "UnsupportedSchemaTypeError",
     "PDAState",

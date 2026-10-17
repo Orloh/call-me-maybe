@@ -1,0 +1,56 @@
+[
+  {
+    "name": "fn_configure_job",
+    "description": "Configure a job with retry and labelling options.",
+    "parameters": {
+      "config": {
+        "type": "object",
+        "properties": {
+          "retries": {
+            "type": "integer"
+          },
+          "labels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "nested": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      }
+    },
+    "returns": {
+      "type": "string"
+    }
+  },
+  {
+    "name": "fn_bulk_add",
+    "description": "Add a list of number pairs.",
+    "parameters": {
+      "pairs": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "a": {
+              "type": "number"
+            },
+            "b": {
+              "type": "number"
+            }
+          }
+        }
+      }
+    },
+    "returns": {
+      "type": "number"
+    }
+  }
+]

@@ -24,6 +24,7 @@ from src.automata import (
     ExactMatchFSM,
     JSONPushdownAutomaton,
     NumberFSM,
+    ObjectSpec,
     StringLiteralFSM,
 )
 from src.automata.primitives import BaseFSM
@@ -33,6 +34,11 @@ _SCHEMA: CompiledSchema = {
     "a": NumberFSM,
     "b": lambda: ExactMatchFSM(["true", "false"]),
     "nums": ArraySpec(item=NumberFSM),
+    "obj": ObjectSpec(fields={
+        "x": NumberFSM,
+        "y": lambda: StringLiteralFSM(),
+    }),
+    "grid": ArraySpec(item=ArraySpec(item=NumberFSM)),
 }
 
 # Chars that exercise every grammar branch: structure, whitespace,
@@ -40,6 +46,7 @@ _SCHEMA: CompiledSchema = {
 _PROBES = [
     "{", "}", "[", "]", '"', ":", ",", " ", "\n", "\t", "\r",
     "a", "n", "0", "5", "9", ".", "-", "\\", "x", "Ġ", "é", "\x01", "t",
+    "e", "E",
 ]
 
 # Array prefixes parking the PDA in every array-relevant position:
@@ -53,7 +60,33 @@ _ARRAY_PREFIXES = [
     '{"nums":[1,2',
     '{"nums":[1,2]',
     '{"nums":[1,2],',
-    '{"name":"x","a":12,"b":true,"nums":[1,2]}',
+    '{"name":"x","a":12,"b":true,"nums":[1,2]',
+]
+
+# Nested object / array-of-array prefixes parking the PDA in every
+# structural position introduced by the frame stack.
+_NESTED_PREFIXES = [
+    '{"obj":',
+    '{"obj":{',
+    '{"obj":{"x"',
+    '{"obj":{"x":',
+    '{"obj":{"x":1',
+    '{"obj":{"x":1,',
+    '{"obj":{"x":1,"y"',
+    '{"obj":{"x":1,"y":',
+    '{"obj":{"x":1,"y":"s',
+    '{"obj":{"x":1,"y":"s"',
+    '{"obj":{"x":1,"y":"s"}',
+    '{"grid":',
+    '{"grid":[',
+    '{"grid":[[',
+    '{"grid":[[1',
+    '{"grid":[[1]',
+    '{"grid":[[1],',
+    '{"grid":[[1],[',
+    '{"grid":[[1],[2',
+    '{"grid":[[1],[2]',
+    '{"grid":[[1],[2]]',
 ]
 
 # PDA prefixes that park the automaton in every reachable state:
@@ -74,8 +107,9 @@ _PDA_PREFIXES = [
     '{"name":"x","a":1.',
     '{"name":"x","a":12,',
     '{"name":"x","a":12,"b":tru',
-    '{"name":"x","a":12,"b":true,"nums":[]}',
-] + _ARRAY_PREFIXES
+    '{"name":"x","a":12,"b":true,"nums":[],"obj":{"x":1,"y":"s"},'
+    '"grid":[[1],[2]]}',
+] + _ARRAY_PREFIXES + _NESTED_PREFIXES
 
 
 def _drive_pda(prefix: str) -> JSONPushdownAutomaton:
@@ -178,7 +212,9 @@ def test_clone_matches_deepcopy_behavior(prefix: str) -> None:
         via_deepcopy = copy.deepcopy(pda)
         assert via_clone.advance(probe) == via_deepcopy.advance(probe)
         assert via_clone.state == via_deepcopy.state
-        assert via_clone.remaining_keys == via_deepcopy.remaining_keys
+        assert via_clone.stack == via_deepcopy.stack
+        assert via_clone.pending_fields == via_deepcopy.pending_fields
+        assert via_clone.pending_item_spec == via_deepcopy.pending_item_spec
 
 
 def test_clone_is_independent_of_original() -> None:
@@ -189,9 +225,7 @@ def test_clone_is_independent_of_original() -> None:
     for char in 'lo","a":99':
         clone.advance(char)
 
-    assert pda.state != clone.state or (
-        pda.remaining_keys != clone.remaining_keys
-    )
+    assert pda.state != clone.state or pda.stack != clone.stack
     # The original still accepts exactly what it accepted before cloning.
     assert pda.accepts_char("l")
-    assert pda.current_key == "name"
+    assert pda.stack[-1].current_spec is StringLiteralFSM

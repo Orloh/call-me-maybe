@@ -131,30 +131,43 @@ The trie stores the model's entire vocabulary as character-level paths. It is bu
 
 Routing and extraction are separated into two generation calls with distinct PDAs. This keeps each grammar tight: the router PDA only accepts `{"name": "fn_x"}` or `{"name": "none"}`, while the extractor PDA only accepts the chosen function's parameter schema. A single-shot approach would require a more complex PDA supporting nested objects.
 
-### Arrays of Scalars
+### Recursive Values (Objects and Arrays)
 
-Parameters may be arrays of scalars, declared JSON-Schema style:
+Parameters may be nested objects and arrays, declared as a JSON Schema subset:
 
 ```json
 {
-  "numbers": { "type": "array", "items": { "type": "number" } }
+  "config": {
+    "type": "object",
+    "properties": {
+      "retries": { "type": "integer" },
+      "labels": { "type": "array", "items": { "type": "string" } }
+    }
+  },
+  "items": {
+    "type": "array",
+    "items": { "type": "object", "properties": { "id": { "type": "number" } } }
+  }
 }
 ```
 
-The extractor PDA accepts `[]`, `[v]`, and `[v,v,...]` for any scalar element
-type (`number`, `string`, `boolean`, `null`). Empty arrays are allowed and
-there is no item-count bound. Nested arrays are intentionally rejected at
-schema validation, so the PDA never needs a stack of element types. A new
-`EXPECTING_ARRAY_START` state and the previously dead `Scope.ARRAY` frame now
-carry the element FSM; `array_just_opened` distinguishes an empty `[]` from a
-rejected trailing comma (`[1,]`).
+Values are fully recursive: objects in objects, arrays of objects, arrays of
+arrays. Empty objects (`{}`) and empty arrays (`[]`) are allowed; trailing
+commas and unknown or duplicate keys are rejected at every level. All object
+properties are required (a `required` list, if present, must name every
+property).
+
+The PDA tracks nesting with a stack of frames — one per open object or array —
+each carrying its own remaining-required keys, current field spec, or element
+spec. `EXPECTING_OBJECT_START`/`EXPECTING_ARRAY_START` open new scopes, and
+`clone()` copies the frame stack so the DFS mask stays independent per branch.
 
 ### Numeric Output Coercion
 
 The grammar accepts both `6` and `6.0` for a `number` parameter. To match the
 expected output format, `number`/`float` parameters are coerced to `float`
-after extraction (recursing into array elements), so `2` is emitted as `2.0`.
-`integer` parameters remain ints.
+after extraction (recursing through nested arrays and objects), so `2` is
+emitted as `2.0`. `integer` parameters remain ints.
 
 ### PDA over Regex
 
@@ -218,6 +231,7 @@ The model computes answers instead of extracting arguments for `fn_reverse_strin
 - **DFS tests**: token masking correctness, clone count benchmarks
 - **Schema compiler tests**: router/extractor table compilation, type mapping, array `ArraySpec` mapping
 - **Array tests** (`test_arrays.py`): array schema validation, compiler mapping, PDA accept/reject (`[]`, `[1,2]`, `[1,]`, type mismatch)
+- **Object tests** (`test_objects.py`): nested objects, arrays of objects, arrays of arrays, empty objects, per-scope key/type enforcement
 - **Engine tests**: generation loop, fast-forward, token selection
 - **CLI error-handling tests** (`test_main_errors.py`): load errors exit 2 before bootstrap, per-prompt failures are isolated and recorded, exit codes 0/1/2
 

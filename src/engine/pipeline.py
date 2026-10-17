@@ -34,6 +34,13 @@ def _coerce_number(value: Any, field: ParameterField) -> Any:
         if isinstance(value, list):
             return [_coerce_number(item, field.items) for item in value]
 
+    if field.type == "object" and field.properties is not None:
+        if isinstance(value, dict):
+            return {
+                key: _coerce_number(value.get(key), sub_field)
+                for key, sub_field in field.properties.items()
+            }
+
     return value
 
 

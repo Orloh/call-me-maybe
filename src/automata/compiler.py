@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, Mapping
 from .primitives import (
     BaseFSM,
     NumberFSM,
@@ -11,11 +11,17 @@ from src.schema import FunctionDefinition, ParameterField
 
 @dataclass(frozen=True)
 class ArraySpec:
-    """Describes an array parameter: the FSM factory of its element type."""
-    item: Callable[[], BaseFSM]
+    """Describes an array parameter: the spec of its element type."""
+    item: "ValueSpec"
 
 
-type ValueSpec = Callable[[], BaseFSM] | ArraySpec
+@dataclass(frozen=True)
+class ObjectSpec:
+    """Describes an object parameter: its (all-required) fields."""
+    fields: Mapping[str, "ValueSpec"]
+
+
+type ValueSpec = Callable[[], BaseFSM] | ArraySpec | ObjectSpec
 
 type CompiledSchema = dict[str, ValueSpec]
 
@@ -127,7 +133,19 @@ class SchemaCompiler:
                 raise UnsupportedSchemaTypeError(
                     "Fatal internal error: array parameter without 'items'."
                 )
-            return ArraySpec(item=cls._map_type_to_fsm(field.items.type))
+            return ArraySpec(item=cls._compile_field(field.items))
+
+        if field.type == "object":
+            if field.properties is None:
+                raise UnsupportedSchemaTypeError(
+                    "Fatal internal error: object parameter without "
+                    "'properties'."
+                )
+            return ObjectSpec(fields={
+                key: cls._compile_field(sub_field)
+                for key, sub_field in field.properties.items()
+            })
+
         return cls._map_type_to_fsm(field.type)
 
     @staticmethod

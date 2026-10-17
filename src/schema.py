@@ -3,30 +3,61 @@ from pydantic import BaseModel, ConfigDict, model_validator
 
 
 AllowedTypes = Literal[
-    "string", "number", "integer", "float", "boolean", "null", "array"
+    "string", "number", "integer", "float", "boolean", "null",
+    "array", "object"
 ]
 
 
 class ParameterField(BaseModel):
     """Represents the type definition of a specific parameter.
 
-    Scalars use only ``type``. Arrays add ``items`` describing the single
-    scalar element type; nested arrays are intentionally unsupported.
+    Recursive JSON Schema subset:
+
+    - scalars use only ``type``;
+    - arrays add ``items`` (any ``ParameterField``, so arrays nest);
+    - objects add ``properties``. Only all-required objects are supported:
+      when ``required`` is present it must list every property, otherwise
+      every property is required implicitly.
     """
     model_config = ConfigDict(extra='forbid')
 
     type: AllowedTypes
     items: "ParameterField | None" = None
+    properties: "dict[str, ParameterField] | None" = None
+    required: "list[str] | None" = None
 
     @model_validator(mode="after")
-    def _validate_items(self) -> "ParameterField":
+    def _validate_shape(self) -> "ParameterField":
         if self.type == "array":
             if self.items is None:
                 raise ValueError("array parameters require an 'items' field")
-            if self.items.type == "array":
-                raise ValueError("nested arrays are not supported")
-        elif self.items is not None:
-            raise ValueError("'items' is only valid for array parameters")
+            if self.properties is not None or self.required is not None:
+                raise ValueError(
+                    "'properties'/'required' are only valid for objects"
+                )
+        elif self.type == "object":
+            if self.properties is None:
+                raise ValueError(
+                    "object parameters require a 'properties' field"
+                )
+            if self.items is not None:
+                raise ValueError("'items' is only valid for arrays")
+            if self.required is not None:
+                if set(self.required) != set(self.properties.keys()):
+                    raise ValueError(
+                        "only all-required objects are supported: "
+                        "'required' must list every property"
+                    )
+        else:
+            if (
+                self.items is not None
+                or self.properties is not None
+                or self.required is not None
+            ):
+                raise ValueError(
+                    "'items'/'properties'/'required' are not valid for "
+                    f"scalar type '{self.type}'"
+                )
         return self
 
 
