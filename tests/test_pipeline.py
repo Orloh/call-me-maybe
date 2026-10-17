@@ -139,3 +139,100 @@ def test_process_prompt_hallucination_trap(
 
     mock_compile_extractor.assert_not_called()
     assert mock_gen_instance.generate.call_count == 1
+
+
+@patch("src.engine.pipeline.ConstrainedGenerator")
+@patch("src.engine.pipeline.SchemaCompiler.compile_extractor_table")
+@patch("src.engine.pipeline.SchemaCompiler.compile_router_table")
+def test_process_prompt_coerces_numbers_to_float(
+    mock_compile_router,
+    mock_compile_extractor,
+    mock_generator_class,
+    mock_model,
+    mock_trie,
+    mock_token_to_decoded
+):
+    """`number` parameters must surface as floats, even if emitted as ints."""
+    tool = FunctionDefinition(
+        name="fn_add_numbers",
+        description="Add two numbers.",
+        parameters={
+            "a": ParameterField(type="number"),
+            "b": ParameterField(type="number")
+        },
+        returns=ParameterField(type="number")
+    )
+    mock_compile_router.return_value = {"name": "mock_name_fsm"}
+    mock_compile_extractor.return_value = {"a": "mock", "b": "mock"}
+
+    pipeline = FunctionCallingPipeline(
+        mock_model, mock_trie, mock_token_to_decoded, [tool]
+    )
+
+    mock_gen_instance = mock_generator_class.return_value
+    mock_gen_instance.generate.side_effect = [
+        '{"name": "fn_add_numbers"}',
+        '{"a": 6, "b": 3.5}'
+    ]
+
+    result = pipeline.process_prompt("Add 6 and 3.5", [tool])
+
+    assert result.parameters == {"a": 6.0, "b": 3.5}
+    assert isinstance(result.parameters["a"], float)
+
+
+@patch("src.engine.pipeline.ConstrainedGenerator")
+@patch("src.engine.pipeline.SchemaCompiler.compile_extractor_table")
+@patch("src.engine.pipeline.SchemaCompiler.compile_router_table")
+def test_process_prompt_keeps_integers_as_int(
+    mock_compile_router,
+    mock_compile_extractor,
+    mock_generator_class,
+    mock_model,
+    mock_trie,
+    mock_token_to_decoded
+):
+    """`integer` parameters stay ints."""
+    tool = FunctionDefinition(
+        name="fn_count",
+        description="Count things.",
+        parameters={"n": ParameterField(type="integer")},
+        returns=ParameterField(type="integer")
+    )
+    mock_compile_router.return_value = {"name": "mock_name_fsm"}
+    mock_compile_extractor.return_value = {"n": "mock"}
+
+    pipeline = FunctionCallingPipeline(
+        mock_model, mock_trie, mock_token_to_decoded, [tool]
+    )
+
+    mock_gen_instance = mock_generator_class.return_value
+    mock_gen_instance.generate.side_effect = [
+        '{"name": "fn_count"}',
+        '{"n": 5}'
+    ]
+
+    result = pipeline.process_prompt("Count 5", [tool])
+
+    assert result.parameters == {"n": 5}
+    assert isinstance(result.parameters["n"], int)
+
+
+def test_coerce_parameters_recurses_into_arrays():
+    """Array-of-number parameters get float elements."""
+    from src.engine.pipeline import _coerce_parameters
+
+    tool = FunctionDefinition(
+        name="fn_sum_list",
+        description="Sum a list.",
+        parameters={
+            "numbers": ParameterField(
+                type="array", items=ParameterField(type="number")
+            )
+        },
+        returns=ParameterField(type="number")
+    )
+
+    coerced = _coerce_parameters({"numbers": [1, 2.5, 3]}, tool)
+
+    assert coerced == {"numbers": [1.0, 2.5, 3.0]}

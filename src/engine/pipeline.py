@@ -1,10 +1,11 @@
 import json
 import logging
+from typing import Any
 
 from llm_sdk import Small_LLM_Model
 from src.trie import PrefixTrie
 from src.automata import JSONPushdownAutomaton, SchemaCompiler
-from src.schema import FunctionDefinition, FunctionCallResult
+from src.schema import FunctionDefinition, FunctionCallResult, ParameterField
 from src.engine import (
     ConstrainedGenerator,
     MaxTokensExceededError,
@@ -12,6 +13,38 @@ from src.engine import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _coerce_number(value: Any, field: ParameterField) -> Any:
+    """
+    Coerces a numeric schema field to float, recursing into array elements.
+
+    The grammar accepts integer-looking JSON numbers, but `number`/`float`
+    parameters must surface as floats (e.g. 6 -> 6.0). Booleans are left
+    untouched (bool is an int subclass). `integer` stays an int.
+    """
+    if field.type in ("number", "float"):
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, (int, float)):
+            return float(value)
+        return value
+
+    if field.type == "array" and field.items is not None:
+        if isinstance(value, list):
+            return [_coerce_number(item, field.items) for item in value]
+
+    return value
+
+
+def _coerce_parameters(
+    parameters: dict[str, Any], tool: FunctionDefinition
+) -> dict[str, Any]:
+    """Applies schema-driven numeric coercion to extracted parameters."""
+    return {
+        key: _coerce_number(parameters.get(key), field)
+        for key, field in tool.parameters.items()
+    }
 
 
 class FunctionCallingPipeline:
@@ -144,7 +177,9 @@ class FunctionCallingPipeline:
                 else:
                     raise
         logger.info("Extractor output: %s", extractor_json_str)
-        extracted_parameters = json.loads(extractor_json_str)
+        extracted_parameters = _coerce_parameters(
+            json.loads(extractor_json_str), target_function
+        )
 
         return FunctionCallResult(
             prompt=user_prompt,

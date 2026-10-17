@@ -9,7 +9,7 @@ call-me-maybe is a from-scratch function-calling engine for Small Language Model
 Given a natural-language request like *"What is the sum of 2 and 3?"*, the system returns a structured function call:
 
 ```json
-{"name": "fn_add_numbers", "parameters": {"a": 2, "b": 3}}
+{"name": "fn_add_numbers", "parameters": {"a": 2.0, "b": 3.0}}
 ```
 
 The engine operates in two phases:
@@ -141,6 +141,13 @@ schema validation, so the PDA never needs a stack of element types. A new
 `EXPECTING_ARRAY_START` state and the previously dead `Scope.ARRAY` frame now
 carry the element FSM; `array_just_opened` distinguishes an empty `[]` from a
 rejected trailing comma (`[1,]`).
+
+### Numeric Output Coercion
+
+The grammar accepts both `6` and `6.0` for a `number` parameter. To match the
+expected output format, `number`/`float` parameters are coerced to `float`
+after extraction (recursing into array elements), so `2` is emitted as `2.0`.
+`integer` parameters remain ints.
 
 ### PDA over Regex
 
