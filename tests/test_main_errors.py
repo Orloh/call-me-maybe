@@ -1,0 +1,191 @@
+"""
+Error-handling tests for the testable CLI entry logic in src/app.py.
+
+Heavy dependencies (model bootstrap, pipeline) are monkeypatched away so
+these run without torch/transformers.
+"""
+import json
+from pathlib import Path
+from unittest.mock import MagicMock
+
+import pytest
+
+from src import app
+from src.app import (
+    EXIT_PROMPT_FAILURES,
+    EXIT_STARTUP_ERROR,
+    EXIT_SUCCESS,
+    RunConfig,
+    parse_args,
+    run,
+)
+from src.schema import FunctionCallResult
+
+_DATA_INPUT = Path(__file__).resolve().parent.parent / "data" / "input"
+_ARRAY_FUNCTIONS = _DATA_INPUT / "edge_arrays_functions.json"
+_ARRAY_PROMPTS = _DATA_INPUT / "edge_arrays_prompts.json"
+_VALID_FUNCTIONS = _DATA_INPUT / "functions_definition.json"
+
+
+def _fake_bootstrap() -> tuple[MagicMock, MagicMock, dict[int, str]]:
+    return MagicMock(), MagicMock(), {}
+
+
+def _fail_if_bootstrapped() -> tuple[MagicMock, MagicMock, dict[int, str]]:
+    pytest.fail("bootstrap should not run before inputs are validated")
+    raise AssertionError("unreachable")
+
+
+def _install_fake_pipeline(
+    monkeypatch: pytest.MonkeyPatch,
+    outcomes: list[object],
+) -> None:
+    class FakePipeline:
+        def __init__(self, **kwargs: object) -> None:
+            pass
+
+        def process_prompt(
+            self, user_prompt: str, available_functions: object
+        ) -> object:
+            outcome = outcomes.pop(0)
+            if isinstance(outcome, Exception):
+                raise outcome
+            return outcome
+
+    monkeypatch.setattr(app, "FunctionCallingPipeline", FakePipeline)
+
+
+def _write_prompts(path: Path, prompts: list[str]) -> None:
+    path.write_text(
+        json.dumps([{"prompt": p} for p in prompts]), encoding="utf-8"
+    )
+
+
+def test_array_functions_fail_at_startup_without_bootstrap(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(app, "initialize_system_dependencies",
+                        _fail_if_bootstrapped)
+
+    output = tmp_path / "results.json"
+    errors = tmp_path / "errors.json"
+    config = RunConfig(_ARRAY_FUNCTIONS, _ARRAY_PROMPTS, output, errors)
+
+    assert run(config) == EXIT_STARTUP_ERROR
+    assert not output.exists()
+    assert not errors.exists()
+
+
+def test_missing_input_file_returns_startup_error(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(app, "initialize_system_dependencies",
+                        _fail_if_bootstrapped)
+
+    output = tmp_path / "results.json"
+    config = RunConfig(
+        tmp_path / "nope.json", _ARRAY_PROMPTS, output, tmp_path / "e.json"
+    )
+
+    assert run(config) == EXIT_STARTUP_ERROR
+    assert not output.exists()
+
+
+def test_prompt_failure_is_isolated_and_recorded(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    prompts = tmp_path / "prompts.json"
+    _write_prompts(prompts, ["first", "second"])
+
+    good = FunctionCallResult(prompt="second", name="none", parameters={})
+    outcomes: list[object] = [RuntimeError("Grammar deadlock"), good]
+
+    monkeypatch.setattr(app, "initialize_system_dependencies", _fake_bootstrap)
+    _install_fake_pipeline(monkeypatch, outcomes)
+
+    output = tmp_path / "results.json"
+    errors = tmp_path / "errors.json"
+    config = RunConfig(_VALID_FUNCTIONS, prompts, output, errors)
+
+    assert run(config) == EXIT_PROMPT_FAILURES
+
+    results = json.loads(output.read_text(encoding="utf-8"))
+    assert len(results) == 1
+    assert results[0]["prompt"] == "second"
+
+    recorded = json.loads(errors.read_text(encoding="utf-8"))
+    assert len(recorded) == 1
+    assert recorded[0]["prompt"] == "first"
+    assert recorded[0]["error_type"] == "RuntimeError"
+
+
+def test_all_prompts_succeed_returns_zero_and_no_errors_file(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    prompts = tmp_path / "prompts.json"
+    _write_prompts(prompts, ["one", "two"])
+
+    outcomes: list[object] = [
+        FunctionCallResult(prompt="one", name="none", parameters={}),
+        FunctionCallResult(prompt="two", name="none", parameters={}),
+    ]
+
+    monkeypatch.setattr(app, "initialize_system_dependencies", _fake_bootstrap)
+    _install_fake_pipeline(monkeypatch, outcomes)
+
+    output = tmp_path / "results.json"
+    errors = tmp_path / "errors.json"
+    config = RunConfig(_VALID_FUNCTIONS, prompts, output, errors)
+
+    assert run(config) == EXIT_SUCCESS
+    assert len(json.loads(output.read_text(encoding="utf-8"))) == 2
+    assert not errors.exists()
+
+
+def test_unexpected_exception_is_recorded_and_returns_failure(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    prompts = tmp_path / "prompts.json"
+    _write_prompts(prompts, ["boom"])
+
+    outcomes: list[object] = [ValueError("something odd")]
+
+    monkeypatch.setattr(app, "initialize_system_dependencies", _fake_bootstrap)
+    _install_fake_pipeline(monkeypatch, outcomes)
+
+    output = tmp_path / "results.json"
+    errors = tmp_path / "errors.json"
+    config = RunConfig(_VALID_FUNCTIONS, prompts, output, errors)
+
+    assert run(config) == EXIT_PROMPT_FAILURES
+
+    recorded = json.loads(errors.read_text(encoding="utf-8"))
+    assert recorded[0]["error_type"] == "ValueError"
+    assert json.loads(output.read_text(encoding="utf-8")) == []
+
+
+def test_parse_args_derives_errors_path_from_output(tmp_path: Path) -> None:
+    output = tmp_path / "custom_results.json"
+    config = parse_args(["--output", str(output)])
+
+    assert config.output_path == output.resolve()
+    assert config.errors_path == (tmp_path / "custom_results_errors.json")
+
+
+def test_parse_args_honors_explicit_errors_output(tmp_path: Path) -> None:
+    output = tmp_path / "results.json"
+    errors = tmp_path / "custom_errors.json"
+    config = parse_args(
+        ["--output", str(output), "--errors_output", str(errors)]
+    )
+
+    assert config.errors_path == errors.resolve()
+
+
+def test_parse_args_defaults_use_project_paths() -> None:
+    config = parse_args([])
+
+    assert config.functions_path.name == "functions_definition.json"
+    assert config.prompts_path.name == "function_calling_tests.json"
+    assert config.output_path.name == "function_calling_results.json"
+    assert config.errors_path.name == "function_calling_errors.json"

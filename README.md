@@ -44,8 +44,29 @@ Or with custom paths:
 uv run python -m src \
     --functions_definition data/input/functions_definition.json \
     --input data/input/function_calling_tests.json \
-    --output data/output/function_calling_results.json
+    --output data/output/function_calling_results.json \
+    --errors_output data/output/function_calling_errors.json
 ```
+
+`--errors_output` is optional: when omitted it defaults to a sibling of
+`--output` (e.g. `results.json` → `results_errors.json`).
+
+### Error Handling & Exit Codes
+
+The CLI is best-effort per prompt: a failure on one prompt is recorded to
+the errors file and the run continues. Exit codes are:
+
+| Code | Meaning |
+|---|---|
+| 0 | All prompts produced a result |
+| 1 | Ran, but at least one prompt failed (see errors file) |
+| 2 | Startup failure: missing/invalid input, schema error, or bootstrap/IO error |
+| 130 | Interrupted (Ctrl-C); partial results were saved |
+
+Inputs are loaded **before** the model is bootstrapped, so invalid input
+fails fast without paying for model startup. The results file keeps the
+same shape as always (successful calls only); failures are written to a
+separate `function_calling_errors.json`.
 
 ### Debug Mode
 
@@ -161,6 +182,7 @@ The model computes answers instead of extracting arguments for `fn_reverse_strin
 - **DFS tests**: token masking correctness, clone count benchmarks
 - **Schema compiler tests**: router/extractor table compilation, type mapping
 - **Engine tests**: generation loop, fast-forward, token selection
+- **CLI error-handling tests** (`test_main_errors.py`): load errors exit 2 before bootstrap, per-prompt failures are isolated and recorded, exit codes 0/1/2
 
 ### End-to-End Tests
 

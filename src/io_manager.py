@@ -1,8 +1,14 @@
 import json
 import logging
 from pathlib import Path
+from typing import Any
 from pydantic import ValidationError
-from src.schema import FunctionCallResult, FunctionDefinition, PromptItem
+from src.schema import (
+    FunctionCallResult,
+    FunctionDefinition,
+    PromptFailure,
+    PromptItem,
+)
 
 
 class SchemaValidationError(Exception):
@@ -153,13 +159,11 @@ def load_prompts(filepath: Path) -> list[PromptItem]:
     return validated_prompts
 
 
-def write_output(results: list[FunctionCallResult], filepath: Path) -> None:
+def _write_records(records: list[dict[str, Any]], filepath: Path) -> None:
     """
-    Serializes a list of LLM function call results to a strictly
-    formatted JSON file.
+    Serializes a list of JSON-able records to a strictly formatted JSON file.
+    Shared by the results and errors writers.
     """
-    serialized_data = [result.model_dump() for result in results]
-
     try:
         filepath.parent.mkdir(parents=True, exist_ok=True)
 
@@ -170,7 +174,7 @@ def write_output(results: list[FunctionCallResult], filepath: Path) -> None:
 
     try:
         with open(filepath, "w", encoding="utf-8") as file:
-            json.dump(serialized_data, file, indent=4)
+            json.dump(records, file, indent=4)
 
     except PermissionError as error:
         raise PermissionDeniedError(
@@ -182,3 +186,21 @@ def write_output(results: list[FunctionCallResult], filepath: Path) -> None:
             f"An unexpected error ocurred while writing to {filepath}"
         )
         raise WriteOutputError(f"Failed to write output: {error}") from error
+
+
+def write_output(results: list[FunctionCallResult], filepath: Path) -> None:
+    """
+    Serializes a list of LLM function call results to a strictly
+    formatted JSON file.
+    """
+    serialized_data = [result.model_dump() for result in results]
+    _write_records(serialized_data, filepath)
+
+
+def write_errors(errors: list[PromptFailure], filepath: Path) -> None:
+    """
+    Serializes a list of per-prompt failures to a strictly formatted
+    JSON file, kept separate from the results output.
+    """
+    serialized_data = [error.model_dump() for error in errors]
+    _write_records(serialized_data, filepath)
