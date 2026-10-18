@@ -135,7 +135,14 @@ def initialize_system_dependencies(
     model = Small_LLM_Model()
 
     logger.info("Loading and parsing model vocabulary...")
-    vocab_path = model.get_path_to_vocab_file()
+    try:
+        vocab_path = model.get_path_to_vocab_file()
+    except Exception as error:
+        raise RuntimeError(
+            "Could not resolve the model's vocab.json. This engine assumes a "
+            "byte-level BPE tokenizer (e.g. Qwen); the model may use an "
+            "unsupported vocabulary format."
+        ) from error
 
     resolved_cache_dir = (
         cache_dir if cache_dir is not None else _DEFAULT_CACHE_DIR

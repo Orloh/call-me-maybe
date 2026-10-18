@@ -103,6 +103,19 @@ def test_initialize_system_dependencies_file_not_found(mock_model_class):
             initialize_system_dependencies()
 
 
+@patch("src.engine.bootstrap.Small_LLM_Model")
+def test_initialize_system_dependencies_clear_backend_error(
+    mock_model_class
+):
+    """A non-BPE/unresolvable vocab surfaces a clear error, not a traceback."""
+    mock_model_class.return_value.get_path_to_vocab_file.side_effect = (
+        RuntimeError("no vocab.json")
+    )
+
+    with pytest.raises(RuntimeError, match="byte-level BPE"):
+        initialize_system_dependencies()
+
+
 _VOCAB = {"hello": 0, "world": 1, "!": 2}
 _EXPECTED_MAP = {0: "hello", 1: "world", 2: "!"}
 

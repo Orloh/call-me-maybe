@@ -65,7 +65,12 @@ ParameterField.model_rebuild()
 
 
 class FunctionDefinition(BaseModel):
-    """Represents a single available function the LLM can call."""
+    """Represents a single available function the LLM can call.
+
+    `returns` is required for schema completeness/documentation only; the
+    engine does not use it during generation or output (the result records
+    the call, not its return value).
+    """
     model_config = ConfigDict(extra='forbid')
 
     name: str

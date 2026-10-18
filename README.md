@@ -261,6 +261,10 @@ pytest -m benchmark -s        # run benchmarks opt-in
   Only the single-candidate fast-forward skips the model entirely. This is
   why a full run takes minutes; the deterministic engine trades speed for
   the validity guarantee.
+- **Prompt injection is mitigated, not eliminated.** The user request and
+  function catalog are marked as untrusted data in the prompts, and output
+  is grammar-constrained, so injected text cannot corrupt the JSON or force
+  an unknown function. It can still bias *which* function is selected.
 - **Byte-level BPE partial sequences.** The trie is built from
   `tokenizer.decode([id])` per token. For byte-level BPE, tokens that are
   partial UTF-8 sequences decode in isolation to the replacement character

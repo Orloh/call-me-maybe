@@ -186,11 +186,15 @@ def _write_records(records: list[dict[str, Any]], filepath: Path) -> None:
             f"Failed to write output to {filepath}: {error}"
         ) from error
 
-    except Exception as error:
+    except (TypeError, ValueError) as error:
+        # Serialization failure (non-JSON-able record); anything else is a
+        # programming error and must propagate rather than be masked.
         logger.exception(
-            f"An unexpected error ocurred while writing to {filepath}"
+            "Failed to serialize records for %s", filepath
         )
-        raise WriteOutputError(f"Failed to write output: {error}") from error
+        raise WriteOutputError(
+            f"Failed to serialize output for {filepath}: {error}"
+        ) from error
 
     finally:
         if tmp_name is not None:
