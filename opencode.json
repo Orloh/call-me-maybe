@@ -1,0 +1,31 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "lsp": {
+    "pyright": {
+      "disabled": true
+    },
+    "mypy": {
+      "command": [".venv/bin/pylsp"],
+      "extensions": [".py", ".pyi"],
+      "initialization": {
+        "pylsp": {
+          "plugins": {
+            "pylsp_mypy": {
+              "dmypy": true,
+              "report_progress": true
+            },
+            "pyflakes": {
+              "enabled": false
+            },
+            "pycodestyle": {
+              "enabled": false
+            },
+            "mccabe": {
+              "enabled": false
+            }
+          }
+        }
+      }
+    }
+  }
+}

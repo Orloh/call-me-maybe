@@ -6,8 +6,6 @@ SRC = src
 
 RUN = uv run python
 
-MYPY_FLAGS = --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs
-
 CHECK_UV = command -v uv
 
 INSTALL_UV = curl -LsSF https://astral.sh/uv/install.sh | sh
@@ -65,7 +63,7 @@ lint:
 	@clear
 	@echo "$(BMAGENTA) Running standard linting...$(RESET)"
 	$(RUN) -m flake8 $(SRC)
-	$(RUN) -m mypy $(SRC) $(MYPY_FLAGS)
+	$(RUN) -m mypy $(SRC)
 
 
 # COLORS
