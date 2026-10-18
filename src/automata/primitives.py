@@ -49,15 +49,6 @@ class BaseFSM(ABC):
         """
         pass
 
-    def allowed_characters(self) -> set[str]:
-        """
-        Legacy finite mask for the CURRENT state.
-        Not used by the production DFS (which uses accepts_char).
-        Subclasses MAY override for finite character sets (digits, keys, etc.).
-        Default returns empty set.
-        """
-        return set()
-
     @abstractmethod
     def is_terminal(self) -> bool:
         """ Signals if the parsed values has successfully concluded."""
@@ -78,10 +69,8 @@ class NumberFSM(BaseFSM):
     """
     Validates flat integer and float types character-by-character.
     """
-    TERMINATORS = {",", "}", "]", " ", "\n", "\t"}
+    TERMINATORS = {",", "}", "]", " ", "\n", "\r", "\t"}
     DIGITS = set("0123456789")
-    MINUS_SIGN = {"-"}
-    DECIMAL_POINT = {"."}
 
     def __init__(self, mode: str = "number") -> None:
         self.mode = mode  # "number" or "integer"
@@ -98,7 +87,7 @@ class NumberFSM(BaseFSM):
             elif char == "0":
                 self.state = NumberState.AFTER_ZERO
                 return True
-            elif char.isdigit():
+            elif char in self.DIGITS:
                 self.state = NumberState.INTEGER_PART
                 return True
             return False
@@ -108,7 +97,7 @@ class NumberFSM(BaseFSM):
             if char == "0":
                 self.state = NumberState.AFTER_ZERO
                 return True
-            elif char.isdigit():
+            elif char in self.DIGITS:
                 self.state = NumberState.INTEGER_PART
                 return True
             return False
@@ -135,7 +124,7 @@ class NumberFSM(BaseFSM):
             return False
 
         elif self.state == NumberState.INTEGER_PART:
-            if char.isdigit():
+            if char in self.DIGITS:
                 return True
             elif self.mode == "number" and char == ".":
                 self.state = NumberState.AFTER_DOT
@@ -150,13 +139,13 @@ class NumberFSM(BaseFSM):
 
         elif self.state == NumberState.AFTER_DOT:
             # After ".", must have at least one digit
-            if char.isdigit():
+            if char in self.DIGITS:
                 self.state = NumberState.FRACTIONAL_PART
                 return True
             return False
 
         elif self.state == NumberState.FRACTIONAL_PART:
-            if char.isdigit():
+            if char in self.DIGITS:
                 return True
             elif char in self.TERMINATORS:
                 self.state = NumberState.TERMINAL
@@ -167,10 +156,10 @@ class NumberFSM(BaseFSM):
 
     def accepts_char(self, char: str) -> bool:
         if self.state == NumberState.START:
-            return char == "-" or char.isdigit()
+            return char == "-" or char in self.DIGITS
         elif self.state == NumberState.AFTER_MINUS:
             # After "-", must have a digit
-            return char.isdigit()
+            return char in self.DIGITS
         elif self.state == NumberState.AFTER_ZERO:
             # After "0", can only have "." or a terminator (exponents rejected)
             if self.mode == "integer":
@@ -178,13 +167,13 @@ class NumberFSM(BaseFSM):
             return char == "." or char in self.TERMINATORS
         elif self.state == NumberState.INTEGER_PART:
             if self.mode == "integer":
-                return char.isdigit()
-            return char.isdigit() or char == "."
+                return char in self.DIGITS
+            return char in self.DIGITS or char == "."
         elif self.state == NumberState.AFTER_DOT:
             # After ".", must have at least one digit
-            return char.isdigit()
+            return char in self.DIGITS
         elif self.state == NumberState.FRACTIONAL_PART:
-            return char.isdigit()
+            return char in self.DIGITS
         return False
 
     def terminates_on(self, char: str) -> bool:
@@ -204,25 +193,6 @@ class NumberFSM(BaseFSM):
         new.state = self.state
         new.mode = self.mode
         return new
-
-    def allowed_characters(self) -> set[str]:
-        if self.state == NumberState.START:
-            return self.DIGITS | self.MINUS_SIGN
-        elif self.state == NumberState.AFTER_MINUS:
-            return self.DIGITS
-        elif self.state == NumberState.AFTER_ZERO:
-            if self.mode == "integer":
-                return self.TERMINATORS
-            return self.DECIMAL_POINT | {"e", "E"} | self.TERMINATORS
-        elif self.state == NumberState.INTEGER_PART:
-            if self.mode == "integer":
-                return self.DIGITS
-            return self.DIGITS | self.DECIMAL_POINT | {"e", "E"}
-        elif self.state == NumberState.AFTER_DOT:
-            return self.DIGITS
-        elif self.state == NumberState.FRACTIONAL_PART:
-            return self.DIGITS | self.TERMINATORS
-        return set()
 
     def is_terminal(self) -> bool:
         return self.state == NumberState.TERMINAL
@@ -245,6 +215,7 @@ class StringLiteralFSM(BaseFSM):
     QUOTE = '"'
     ESCAPE = '\\'
     VALID_ESCAPES = set('"\\/bfnrtu')
+    HEX_DIGITS = set("0123456789abcdefABCDEF")
     ILLEGAL_RAW_CHARS = set(chr(i) for i in range(32))
 
     def __init__(self) -> None:
@@ -291,7 +262,7 @@ class StringLiteralFSM(BaseFSM):
             return False
 
         elif self.state == StringState.HEX_SEQUENCE:
-            if char.isdigit() or char in "abcdefABCDEF":
+            if char in self.HEX_DIGITS:
                 self.parsed_value += char
                 self.hex_digits_remaining -= 1
                 if self.hex_digits_remaining == 0:
@@ -309,7 +280,7 @@ class StringLiteralFSM(BaseFSM):
         elif self.state == StringState.ESCAPE_SEQUENCE:
             return char in self.VALID_ESCAPES
         elif self.state == StringState.HEX_SEQUENCE:
-            return char.isdigit() or char in "abcdefABCDEF"
+            return char in self.HEX_DIGITS
         return False
 
     def terminates_on(self, char: str) -> bool:
@@ -401,16 +372,6 @@ class ExactMatchFSM(BaseFSM):
         new.active_candidates = self.active_candidates
         new.current_index = self.current_index
         return new
-
-    def allowed_characters(self) -> set[str]:
-        if self.state == ExactMatchState.TERMINAL:
-            return set()
-
-        return {
-            candidate[self.current_index]
-            for candidate in self.active_candidates
-            if self.current_index < len(candidate)
-        }
 
     def is_terminal(self) -> bool:
         return self.state == ExactMatchState.TERMINAL

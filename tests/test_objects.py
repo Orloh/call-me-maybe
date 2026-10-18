@@ -3,6 +3,7 @@ Recursive object tests: schema declaration, compiler mapping, and the
 frame-stack PDA grammar (objects in objects, arrays of objects, arrays of
 arrays, empty objects). All properties are required.
 """
+import json
 from pathlib import Path
 
 import pytest
@@ -221,6 +222,25 @@ def test_array_of_objects_missing_key_rejected() -> None:
         '"nested":{"flag":true}},"items":[{"id":1},{}],"matrix":[]}'
     )
     assert not _accepts(table, bad)
+
+
+def test_object_key_with_quote_accepts() -> None:
+    """Property names needing JSON escaping must be representable."""
+    schema: CompiledSchema = {"o": ObjectSpec(fields={'a"b': NumberFSM})}
+    doc = '{"o":' + json.dumps({'a"b': 1}) + '}'
+    assert _accepts(schema, doc)
+
+
+def test_object_key_with_backslash_accepts() -> None:
+    schema: CompiledSchema = {"o": ObjectSpec(fields={"a\\b": NumberFSM})}
+    doc = '{"o":' + json.dumps({"a\\b": 1}) + '}'
+    assert _accepts(schema, doc)
+
+
+def test_object_key_with_unicode_accepts() -> None:
+    schema: CompiledSchema = {"o": ObjectSpec(fields={"é": NumberFSM})}
+    doc = '{"o":' + json.dumps({"é": 1}, ensure_ascii=False) + '}'
+    assert _accepts(schema, doc)
 
 
 def test_object_wrong_field_type_rejected() -> None:

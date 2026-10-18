@@ -1,3 +1,4 @@
+import json
 from dataclasses import dataclass
 from typing import Callable, Mapping
 from .primitives import (
@@ -70,7 +71,9 @@ class SchemaCompiler:
         Creates a routing dictionary that ONLY accpets the "name" key
         and validates against the exact names of the available functions.
         """
-        valid_function_names = [f'"{tool.name}"' for tool in tools]
+        valid_function_names = [
+            json.dumps(tool.name, ensure_ascii=False) for tool in tools
+        ]
 
         if not valid_function_names:
             return {}
@@ -94,31 +97,6 @@ class SchemaCompiler:
 
         for param_key, param_field in tool.parameters.items():
             routing_table[param_key] = cls._compile_field(param_field)
-
-        return routing_table
-
-    @classmethod
-    def compile_tools(
-        cls,
-        tools: list[FunctionDefinition]
-    ) -> CompiledSchema:
-        """
-        Parses a list of FunctionDefinitions and creates a universal
-        routing dictionary mappin JSON keys to FSM generators.
-        """
-        routing_table: CompiledSchema = {}
-        valid_function_names: list[str] = []
-
-        for tool in tools:
-            valid_function_names.append(f'"{tool.name}"')
-
-            for param_key, param_field in tool.parameters.items():
-                routing_table[param_key] = cls._compile_field(param_field)
-
-        if valid_function_names:
-            routing_table["name"] = _make_exact_match_factory(
-                valid_function_names
-            )
 
         return routing_table
 

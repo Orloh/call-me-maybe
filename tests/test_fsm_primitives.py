@@ -66,30 +66,64 @@ def test_number_fsm_rejects_multiple_decimals():
     assert fsm.advance('.') is False
 
 
-def test_number_fsm_allowed_characters_pruning():
+def test_number_fsm_accepts_char_pruning():
     """
-    Verifies that the FSM correctly reports allowed characters
-    to the Trie for aggressive token pruning.
+    Verifies that accepts_char reports exactly the characters that can
+    extend a number (used by the DFS to prune trie edges).
     """
     fsm = NumberFSM()
 
-    allowed_start = fsm.allowed_characters()
-    assert '-' in allowed_start
-    assert '5' in allowed_start
-    assert '.' not in allowed_start
-    assert ',' not in allowed_start
+    assert fsm.accepts_char('-')
+    assert fsm.accepts_char('5')
+    assert not fsm.accepts_char('.')
+    assert not fsm.accepts_char(',')
 
     fsm.advance('5')
-    allowed_int = fsm.allowed_characters()
-    assert '.' in allowed_int
-    assert ',' not in allowed_int  # Terminators handled by terminates_on()
-    assert '-' not in allowed_int
+    assert fsm.accepts_char('.')
+    assert not fsm.accepts_char(',')  # Terminators handled by terminates_on()
+    assert not fsm.accepts_char('-')
 
     fsm.advance('.')
-    allowed_frac = fsm.allowed_characters()
-    assert '7' in allowed_frac
-    assert ',' not in allowed_frac  # Terminators handled by terminates_on()
-    assert '.' not in allowed_frac
+    assert fsm.accepts_char('7')
+    assert not fsm.accepts_char(',')  # Terminators handled by terminates_on()
+    assert not fsm.accepts_char('.')
+
+
+def test_number_fsm_rejects_non_ascii_digits():
+    """Only ASCII 0-9 are JSON digits; superscripts/Arabic-Indic are not."""
+    for literal in ["²", "³", "¹", "٣", "０"]:
+        fsm = NumberFSM()
+        assert fsm.advance(literal) is False, literal
+        assert fsm.accepts_char(literal) is False, literal
+
+    # And they cannot extend a valid integer part either.
+    fsm = NumberFSM()
+    fsm.advance("1")
+    assert fsm.advance("²") is False
+    assert fsm.accepts_char("²") is False
+
+
+def test_number_fsm_accepts_carriage_return_terminator():
+    """`\\r` is legal JSON whitespace and must terminate a number."""
+    fsm = NumberFSM()
+    for char in "12":
+        assert fsm.advance(char)
+
+    assert fsm.terminates_on("\r") is True
+
+    probe = fsm.clone()
+    assert probe.advance("\r") is False
+    assert probe.is_terminal() is True
+
+
+def test_string_fsm_rejects_non_ascii_hex():
+    """`\\u` escapes require ASCII hex digits."""
+    fsm = StringLiteralFSM()
+    for char in '"\\u00':
+        assert fsm.advance(char)
+
+    assert fsm.accepts_char("²") is False
+    assert fsm.advance("²") is False
 
 
 def test_number_fsm_accepts_char_mirror():
@@ -176,10 +210,13 @@ def test_string_fsm_rejects_raw_newlines():
 def test_exact_match_fsm_booleans():
     fsm = ExactMatchFSM(["true", "false"])
 
-    assert fsm.allowed_characters() == {"t", "f"}
-    
+    assert fsm.accepts_char("t")
+    assert fsm.accepts_char("f")
+    assert not fsm.accepts_char("x")
+
     assert fsm.advance("t") is True
-    assert fsm.allowed_characters() == {"r"}
+    assert fsm.accepts_char("r")
+    assert not fsm.accepts_char("u")
     assert fsm.advance("r") is True
     assert fsm.advance("u") is True
     assert fsm.advance("e") is True
@@ -209,8 +246,10 @@ def test_exact_match_fsm_overlapping_enums():
     assert fsm.advance('d') is True
     assert fsm.advance('d') is True
     
-    assert fsm.allowed_characters() == {'"', '_'}
-    
+    assert fsm.accepts_char('"')
+    assert fsm.accepts_char('_')
+    assert not fsm.accepts_char('a')
+
     assert fsm.advance('"') is True
     assert fsm.is_terminal() is True
 

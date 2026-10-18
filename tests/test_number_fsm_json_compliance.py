@@ -54,6 +54,9 @@ def _is_valid_number(s: str) -> bool:
     "-00",    # minus + leading zeros
     ".",      # no integer part
     "-.",     # minus + dot, no digits
+    "\u00b2", # superscript two: isdigit() True, JSON rejects
+    "\u0663", # Arabic-Indic digit three
+    "\uff10", # fullwidth digit zero
 ])
 def test_number_fsm_rejects_invalid_json_numbers(number: str) -> None:
     """
@@ -96,12 +99,14 @@ def test_number_fsm_accepts_valid_json_numbers(number: str) -> None:
     '{"a":-}',      # minus without digit
     '{"a":5.}',     # trailing dot
     '{"a":007}',    # leading zeros
+    '{"a":\u00b2}', # superscript two
+    '{"a":\u0663}', # Arabic-Indic digit three
+    '{"a":\uff10}', # fullwidth digit zero
 ])
 def test_pda_rejects_invalid_numbers_in_json(json_str: str) -> None:
     """
-    C3 fix verification: PDA must reject invalid numbers in JSON context.
-    
-    These tests will FAIL with current buggy implementation and PASS after fix.
+    C3 fix verification: PDA must reject invalid numbers in JSON context,
+    including non-ASCII "digits" that str.isdigit() would otherwise admit.
     """
     schema: CompiledSchema = {"a": NumberFSM}
     pda = JSONPushdownAutomaton(schema)

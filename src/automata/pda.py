@@ -1,3 +1,4 @@
+import json
 from dataclasses import dataclass, field
 from enum import Enum, auto
 
@@ -57,17 +58,6 @@ class _Frame:
 
 
 class JSONPushdownAutomaton:
-    # Structural Grammar Definitions
-    CHAR_OBJECT_START = frozenset("{")
-    CHAR_ARRAY_START = frozenset("[")
-    CHAR_ARRAY_CLOSE = frozenset("]")
-    CHAR_KEY_QUOTE = frozenset('"')
-    CHAR_COLON = frozenset(":")
-    CHAR_COMMA = frozenset(",")
-    CHAR_OBJECT_CLOSE = frozenset("}")
-    CHARS_OBJECT_NEXT = frozenset({",", "}"})
-    CHARS_ARRAY_NEXT = frozenset({",", "]"})
-    CHARS_EMPTY: frozenset[str] = frozenset()
     WHITESPACE = frozenset(" \n\r\t")
 
     def __init__(self, compiled_schema: CompiledSchema) -> None:
@@ -224,7 +214,9 @@ class JSONPushdownAutomaton:
                 self.state == PDAState.EXPECTING_COLON
                 and isinstance(self.active_fsm, ExactMatchFSM)
             ):
-                matched_key = self.active_fsm.active_candidates[0].strip('"')
+                matched_key = json.loads(
+                    self.active_fsm.active_candidates[0]
+                )
                 top = self.stack[-1]
                 top.remaining_required.discard(matched_key)
                 top.current_spec = (
@@ -284,7 +276,10 @@ class JSONPushdownAutomaton:
             if not top.remaining_required:
                 return False
 
-            valid_quoted_keys = [f'"{k}"' for k in top.remaining_required]
+            valid_quoted_keys = [
+                json.dumps(k, ensure_ascii=False)
+                for k in top.remaining_required
+            ]
             self.active_fsm = ExactMatchFSM(valid_quoted_keys)
             self.active_fsm.advance('"')
             self.state = PDAState.EXPECTING_COLON
@@ -381,62 +376,3 @@ class JSONPushdownAutomaton:
             return self._close_scope()
 
         return False
-
-    def allowed_characters(self) -> frozenset[str] | set[str]:
-        """
-        If active_fsm is alive, return the FSM's allowed chars.
-        Otherwise, return the PDA's allowed structural chars.
-        """
-        if self.active_fsm:
-            return self.active_fsm.allowed_characters()
-
-        match self.state:
-            case PDAState.TERMINAL:
-                return self.CHARS_EMPTY
-
-            case PDAState.EXPECTING_OBJECT_START:
-                return self.CHAR_OBJECT_START
-
-            case PDAState.EXPECTING_KEY:
-                top = self.stack[-1]
-                if top.remaining_required:
-                    return self.CHAR_KEY_QUOTE
-                return self.CHAR_OBJECT_CLOSE
-
-            case PDAState.EXPECTING_COLON:
-                return self.CHAR_COLON
-
-            case PDAState.EXPECTING_ARRAY_START:
-                return self.CHAR_ARRAY_START
-
-            case PDAState.EXPECTING_VALUE:
-                top = self.stack[-1]
-                spec = (
-                    top.item_spec
-                    if top.scope == Scope.ARRAY
-                    else top.current_spec
-                )
-                if spec is None:
-                    return self.CHARS_EMPTY
-                if isinstance(spec, ArraySpec):
-                    allowed: set[str] = set(self.CHAR_ARRAY_START)
-                elif isinstance(spec, ObjectSpec):
-                    allowed = set(self.CHAR_OBJECT_START)
-                else:
-                    allowed = set(spec().allowed_characters())
-                if top.scope == Scope.ARRAY and top.just_opened:
-                    allowed |= self.CHAR_ARRAY_CLOSE
-                return allowed
-
-            case PDAState.EXPECTING_COMMA_OR_END:
-                top = self.stack[-1]
-                if top.scope == Scope.OBJECT:
-                    if top.remaining_required:
-                        return self.CHAR_COMMA
-                    return self.CHAR_OBJECT_CLOSE
-                return self.CHARS_ARRAY_NEXT
-
-            case _:
-                return self.CHARS_EMPTY
-
-        return self.CHARS_EMPTY

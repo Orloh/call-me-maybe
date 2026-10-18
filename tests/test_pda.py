@@ -38,7 +38,7 @@ def test_pda_initialization(mock_schema):
     """
     pda = JSONPushdownAutomaton(mock_schema)
     assert pda.state == PDAState.EXPECTING_OBJECT_START
-    assert pda.allowed_characters() == frozenset("{")
+    assert pda.accepts_char("{")
     assert len(pda.stack) == 0
     assert pda.pending_fields == mock_schema
 
@@ -110,7 +110,7 @@ def test_pda_accepts_curly_bracket(mock_schema):
     assert pda.state == PDAState.EXPECTING_OBJECT_START
     pda.advance("{")
     assert pda.state == PDAState.EXPECTING_KEY
-    assert pda.allowed_characters() == frozenset('"')
+    assert pda.accepts_char('"')
 
 
 def test_pda_valid_phase2_json(mock_schema):

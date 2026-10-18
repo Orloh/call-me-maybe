@@ -63,6 +63,24 @@ def test_compile_router_table():
     assert '"none"' in name_fsm.active_candidates
 
 
+def test_compile_router_table_escapes_names():
+    """Function names needing JSON escaping must build valid candidates."""
+    from src.automata import ExactMatchFSM
+
+    tool = FunctionDefinition(
+        name='fn_"quoted"',
+        description=".",
+        parameters={},
+        returns=ParameterField(type="number"),
+    )
+
+    routing_table = SchemaCompiler.compile_router_table([tool])
+    name_fsm = routing_table["name"]()
+
+    assert isinstance(name_fsm, ExactMatchFSM)
+    assert '"fn_\\"quoted\\""' in name_fsm.active_candidates
+
+
 def test_compile_extractor_table_with_array():
     """
     Proves that array parameters compile to an ArraySpec wrapping the

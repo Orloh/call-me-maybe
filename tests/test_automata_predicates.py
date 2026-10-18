@@ -47,6 +47,8 @@ _PROBES = [
     "{", "}", "[", "]", '"', ":", ",", " ", "\n", "\t", "\r",
     "a", "n", "0", "5", "9", ".", "-", "\\", "x", "Ġ", "é", "\x01", "t",
     "e", "E",
+    # Non-ASCII "digits" that str.isdigit() accepts but JSON rejects.
+    "²", "³", "¹", "٣", "０",
 ]
 
 # Array prefixes parking the PDA in every array-relevant position:
