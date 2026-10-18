@@ -71,16 +71,23 @@ Python 3.12+ required. Package manager is `uv` (not pip). The `llm_sdk` package 
 - **Output writes are atomic** — `io_manager._write_records` serializes to a temp sibling and `os.replace`s it into place. `app._save` defers SIGINT (`signal.pthread_sigmask`) during the write; a `threading.Lock` would deadlock because the SIGINT handler runs on the same thread.
 - **No router/extractor retry** — decoding is greedy, so a retry would reproduce the same `MaxTokensExceededError`; it now propagates to `app._PROMPT_ERRORS`.
 - **JSON-escaped keys/names** — the PDA key FSM and `SchemaCompiler` build candidates with `json.dumps(..., ensure_ascii=False)`, so property/function names containing quotes, backslashes, or unicode are representable.
+- **Decoded-vocab cache** — `initialize_system_dependencies(cache_dir=None)` caches the decoded maps under `.cache/decoded_vocab/` keyed by vocab path + mtime + size (atomic write, validated on load). Stale/corrupt caches are rebuilt; caching is skipped when the vocab path cannot be stat-ed (keeps mocked tests hermetic). `.cache/` is gitignored.
+- **Pipeline compiles once** — `FunctionCallingPipeline.__init__` builds the router table and one extractor table per function; `process_prompt(user_prompt)` no longer takes `available_functions`.
 
 ## Testing
 
 - Tests live in `tests/`, one file per component (`test_pda.py`, `test_dfs.py`, `test_engine.py`, etc.). `test_arrays.py` and `test_objects.py` cover recursive schema/compiler/PDA behavior (nested objects, arrays of objects, arrays of arrays); `test_automata_predicates.py` includes nested-object and array prefixes in the `accepts_char == advance` invariant.
 - Heavy ML deps (`Small_LLM_Model`, `PrefixTrie`) are **mocked** in tests via `unittest.mock.patch` — don't try to instantiate them in tests.
 - `test_pipeline.py` is the best reference for understanding the end-to-end flow.
+- `test_bootstrap.py` covers the decoded-vocab disk cache (hit/stale/corrupt) and the clear non-BPE backend error; `test_bootstrap_integration.py` (benchmark-marked) drives `initialize_system_dependencies` with the real Qwen tokenizer and asserts the decoded trie + cache reuse.
 - `test_io_manager.py` tests permission errors by chmod-ing files in `tmp_path` — these may fail in sandboxed environments.
 - `test_dfs_benchmark.py` has two kinds of tests: an **unmarked correctness snapshot** (`test_dfs_correctness_snapshot_baseline`, runs in the default suite — hand-computed token-id sets pinning DFS behavior) and **`@pytest.mark.benchmark` tests** (excluded by default via `addopts = "-m 'not benchmark'"`; run with `pytest -m benchmark -s`). The benchmarks measure clone count per `find_allowed_tokens` call — the C1 metric.
 - **C1 (DFS clone storm) — FIXED 2026-07-25.** Pre-fix baseline: 331,073 deepcopies / ~11.5s per call inside a string literal with the real vocab. Post-fix (mask via `accepts_char` + cheap `clone()`): structural states collapse to ~10¹ clones; inside strings the ~150k-token enumeration is inherent but the call now takes ~0.7s (~16x faster). Real-vocab numbers: S1=2, S2=7, S4=17 clones; S3=330,620 clones / 0.72s.
 
 ## Known Limitations
 
+- **W3 (no KV cache):** the model has no KV cache, so `generate()` re-runs the whole sequence every step (O(n²) attention) via `get_logits_from_input_ids`, which also allocates two vocab-sized lists per call. Only the single-candidate fast-forward (`len(allowed_ids) == 1`) skips the model. Fixing this properly requires a stateful SDK API; deliberately left as-is (`llm_sdk/` untouched).
+- **W8 (byte-level BPE partial sequences):** the trie is built from `tokenizer.decode([id])` per token. Tokens that are partial UTF-8 sequences decode in isolation to `U+FFFD`; multiple ids then collide and `decoded_vocab` keeps only the last (logged at bootstrap). Output JSON stays valid, but exact handling of split multi-byte characters needs a byte-aware trie (raw bytes + partial-UTF-8 state) — out of scope.
+- **W10 (prompt injection):** the user request and function catalog are framed as untrusted data in both prompt builders, and grammar constraints prevent malformed output/unknown functions, but injected text can still bias function *selection*.
 - **W7 (`trust_remote_code`):** `llm_sdk.Small_LLM_Model` defaults to `trust_remote_code=True` (required for some HF models including the default Qwen). Callers who care about supply-chain risk should pass `trust_remote_code=False` when the model supports it. No change planned in `llm_sdk/`.
+- **`FunctionDefinition.returns`** is required for schema completeness only; it is not used during generation.
