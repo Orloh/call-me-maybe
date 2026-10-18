@@ -82,16 +82,21 @@ class FunctionCallingPipeline:
         self.model = model
         self.trie = trie
         self.token_to_decoded = token_to_decoded
+        self.available_functions = available_functions
         self.router_table = SchemaCompiler.compile_router_table(
             available_functions
         )
+        # Compile each function's extractor table once, not per prompt.
+        self.functions_by_name = {
+            func.name: func for func in available_functions
+        }
+        self.extractor_tables = {
+            func.name: SchemaCompiler.compile_extractor_table(func)
+            for func in available_functions
+        }
         self.trace = trace
 
-    def process_prompt(
-        self,
-        user_prompt: str,
-        available_functions: list[FunctionDefinition]
-    ) -> FunctionCallResult:
+    def process_prompt(self, user_prompt: str) -> FunctionCallResult:
         """
         Run the two-phase generation pipeline for a single user prompt.
 
@@ -101,16 +106,14 @@ class FunctionCallingPipeline:
 
         Args:
             user_prompt: The natural-language user request.
-            available_functions: The list of callable function definitions.
 
         Returns:
             A FunctionCallResult with the selected function name
             and extracted parameters.
         """
         # PHASE 1: Function Routing
-        router_prompt = (
-            PromptBuilder
-            .build_function_name_prompt(user_prompt, available_functions)
+        router_prompt = PromptBuilder.build_function_name_prompt(
+            user_prompt, self.available_functions
         )
         router_pda = JSONPushdownAutomaton(self.router_table)
         router_gen = ConstrainedGenerator(
@@ -127,10 +130,7 @@ class FunctionCallingPipeline:
         logger.info("Router output: %s", router_json_str)
         selected_func_name = json.loads(router_json_str).get("name")
 
-        target_function = next(
-            (func for func in available_functions
-             if func.name == selected_func_name),
-            None)
+        target_function = self.functions_by_name.get(selected_func_name)
 
         if not target_function:
             logger.warning(
@@ -148,9 +148,7 @@ class FunctionCallingPipeline:
             target_function
         )
 
-        extractor_table = SchemaCompiler.compile_extractor_table(
-            target_function
-        )
+        extractor_table = self.extractor_tables[target_function.name]
 
         extractor_pda = JSONPushdownAutomaton(extractor_table)
         extractor_gen = ConstrainedGenerator(

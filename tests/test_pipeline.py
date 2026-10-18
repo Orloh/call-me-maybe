@@ -96,7 +96,7 @@ def test_process_prompt_success(
     ]
 
     user_prompt = "What is the weather in Madrid?"
-    result = pipeline.process_prompt(user_prompt, sample_functions)
+    result = pipeline.process_prompt(user_prompt)
 
     assert isinstance(result, FunctionCallResult)
     assert result.prompt == user_prompt
@@ -131,13 +131,15 @@ def test_process_prompt_hallucination_trap(
     mock_gen_instance = mock_generator_class.return_value
     mock_gen_instance.generate.return_value = '{"name": "get_sports_scores"}'
 
-    result = pipeline.process_prompt("Who won the game?", sample_functions)
+    result = pipeline.process_prompt("Who won the game?")
 
     assert isinstance(result, FunctionCallResult)
     assert result.name == "none"
     assert result.parameters == {}
 
-    mock_compile_extractor.assert_not_called()
+    # Extractor tables are compiled eagerly in __init__, once per function;
+    # Phase 2 itself must not generate for an unroutable prompt.
+    assert mock_compile_extractor.call_count == len(sample_functions)
     assert mock_gen_instance.generate.call_count == 1
 
 
@@ -168,7 +170,7 @@ def test_process_prompt_propagates_max_tokens_error(
     )
 
     with pytest.raises(MaxTokensExceededError):
-        pipeline.process_prompt("hi", sample_functions)
+        pipeline.process_prompt("hi")
 
     assert mock_gen_instance.generate.call_count == 1
 
@@ -207,7 +209,7 @@ def test_process_prompt_coerces_numbers_to_float(
         '{"a": 6, "b": 3.5}'
     ]
 
-    result = pipeline.process_prompt("Add 6 and 3.5", [tool])
+    result = pipeline.process_prompt("Add 6 and 3.5")
 
     assert result.parameters == {"a": 6.0, "b": 3.5}
     assert isinstance(result.parameters["a"], float)
@@ -244,7 +246,7 @@ def test_process_prompt_keeps_integers_as_int(
         '{"n": 5}'
     ]
 
-    result = pipeline.process_prompt("Count 5", [tool])
+    result = pipeline.process_prompt("Count 5")
 
     assert result.parameters == {"n": 5}
     assert isinstance(result.parameters["n"], int)

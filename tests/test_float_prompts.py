@@ -94,7 +94,7 @@ def test_float_prompt_parameters_are_floats(
     )
 
     pipeline = FunctionCallingPipeline(MagicMock(), MagicMock(), {}, _FUNCTIONS)
-    result = pipeline.process_prompt(prompt, _FUNCTIONS)
+    result = pipeline.process_prompt(prompt)
 
     assert result.name == func
     assert result.parameters == expected

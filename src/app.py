@@ -313,10 +313,7 @@ def _run_body(
         logger.info("Processing [%d/%d]: %r",
                     index, len(prompt_items), item.prompt)
         try:
-            result = pipeline.process_prompt(
-                user_prompt=item.prompt,
-                available_functions=available_functions,
-            )
+            result = pipeline.process_prompt(user_prompt=item.prompt)
             results.append(result)
             logger.info("-> Success! Routed to: %s()", result.name)
 

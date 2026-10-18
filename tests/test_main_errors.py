@@ -56,9 +56,7 @@ def _install_fake_pipeline(
         def __init__(self, **kwargs: object) -> None:
             pass
 
-        def process_prompt(
-            self, user_prompt: str, available_functions: object
-        ) -> object:
+        def process_prompt(self, user_prompt: str) -> object:
             outcome = outcomes.pop(0)
             if isinstance(outcome, Exception):
                 raise outcome
