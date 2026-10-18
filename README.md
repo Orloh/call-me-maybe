@@ -253,6 +253,22 @@ pytest -k "pda"               # filter by keyword
 pytest -m benchmark -s        # run benchmarks opt-in
 ```
 
+## Known Limitations
+
+- **No KV cache.** Each generation step re-runs the whole sequence through
+  the model, so attention cost grows with the generated prefix (O(n²) per
+  prompt) and the SDK returns two full vocab-sized Python lists per call.
+  Only the single-candidate fast-forward skips the model entirely. This is
+  why a full run takes minutes; the deterministic engine trades speed for
+  the validity guarantee.
+- **Byte-level BPE partial sequences.** The trie is built from
+  `tokenizer.decode([id])` per token. For byte-level BPE, tokens that are
+  partial UTF-8 sequences decode in isolation to the replacement character
+  `U+FFFD`; distinct ids that decode to the same text collide and only one
+  survives (`decoded_vocab` is last-wins). This does not affect JSON
+  validity, but a fully correct treatment of multi-byte characters requires
+  a byte-aware trie that tracks partial UTF-8 state, which is out of scope.
+
 ## Resources
 
 - [Qwen/Qwen3-0.6B](https://huggingface.co/Qwen/Qwen3-0.6B) — the underlying language model

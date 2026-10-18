@@ -127,8 +127,14 @@ class ConstrainedGenerator:
         otherwise falls back to masked LLM generation.
         """
         if len(allowed_ids) == 1:
+            # Fast-forward: a forced token needs no LLM scoring.
             return allowed_ids[0]
 
+        # Known limitation (W3): the model has no KV cache, so the whole
+        # sequence is re-run every step (O(n^2) attention), and the SDK
+        # builds two full vocab-sized lists per call. See README "Known
+        # limitations". The single-candidate fast-forward above is the only
+        # path that skips this cost.
         raw_logits = self.model.get_logits_from_input_ids(current_tokens)
 
         num_logits = len(raw_logits)
