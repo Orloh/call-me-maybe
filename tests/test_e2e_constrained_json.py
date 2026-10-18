@@ -48,9 +48,13 @@ class _MockTensor:
 
 
 class _ScriptedModel:
-    def __init__(self, vocab: dict[str, int]) -> None:
+    def __init__(
+        self, vocab: dict[str, int], logits_size: int | None = None
+    ) -> None:
         self._rev_vocab: dict[int, str] = {v: k for k, v in vocab.items()}
-        self._vocab_size = len(vocab)
+        self._vocab_size = (
+            logits_size if logits_size is not None else len(vocab)
+        )
 
     def encode(self, text: str) -> _MockTensor:
         return _MockTensor([[]])
@@ -281,3 +285,57 @@ def test_e2e_routing_real_vocab() -> None:
     assert parsed["name"] == "fn_greet", (
         f"unexpected function name: {parsed['name']!r}"
     )
+
+
+@pytest.mark.benchmark
+def test_e2e_routing_decoded_vocab() -> None:
+    """
+    Exercise the *production* decoded-vocab path: build the trie from
+    tokenizer.decode(...) exactly as bootstrap.initialize_system_dependencies
+    does, then run Phase 1 routing through it. Skipped without the Qwen
+    tokenizer/vocab in the local HF cache.
+    """
+    transformers = pytest.importorskip("transformers")
+
+    vocab_path = _find_real_vocab()
+    if vocab_path is None:
+        pytest.skip("Qwen3-0.6B vocab.json not found in HF cache")
+
+    try:
+        tokenizer = transformers.AutoTokenizer.from_pretrained(
+            "Qwen/Qwen3-0.6B"
+        )
+    except Exception as exc:  # pragma: no cover - environment dependent
+        pytest.skip(f"tokenizer unavailable: {exc}")
+
+    with open(vocab_path, encoding="utf-8") as fh:
+        vocab: dict[str, int] = json.load(fh)
+
+    decoded_vocab: dict[str, int] = {}
+    token_to_decoded: dict[int, str] = {}
+    for token_id in vocab.values():
+        decoded = tokenizer.decode([token_id], skip_special_tokens=True)
+        if not decoded:
+            continue
+        decoded_vocab[decoded] = token_id
+        token_to_decoded[token_id] = decoded
+
+    max_id = max(decoded_vocab.values())
+    trie = _build_trie(decoded_vocab)
+    model = _ScriptedModel(decoded_vocab, logits_size=max_id + 1)
+
+    func = FunctionDefinition(
+        name="fn_greet",
+        description="Generate a greeting for a person by name.",
+        parameters={"name": ParameterField(type="string")},
+        returns=ParameterField(type="string"),
+    )
+
+    router_schema = SchemaCompiler.compile_router_table([func])
+    pda = JSONPushdownAutomaton(router_schema)
+    gen = ConstrainedGenerator(model, pda, trie, token_to_decoded)
+
+    output = gen.generate("Greet Alice", max_new_tokens=50)
+    parsed = json.loads(output)
+
+    assert parsed.get("name") in {"fn_greet", "none"}, parsed
