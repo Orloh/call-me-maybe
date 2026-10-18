@@ -35,17 +35,19 @@ def initialize_system_dependencies() -> tuple[
         if not decoded:
             continue
         if decoded in decoded_vocab:
-            # Two ids decode to the same text. Only one id can be stored in
-            # the trie for that string; the last one encountered wins, so the
-            # shadowed id is unreachable during generation.
+            # Another id already decodes to this text. Only one id can be
+            # stored in the trie per unique string; the last one encountered
+            # wins, making the earlier ids unreachable during generation.
+            # This happens for byte-level BPE fragments that decode in
+            # isolation to U+FFFD (the replacement character).
             shadowed += 1
         decoded_vocab[decoded] = token_id
         token_to_decoded[token_id] = decoded
 
     if shadowed:
         logger.info(
-            "%d token id(s) shadowed by an earlier id decoding to the same "
-            "text (last-wins).",
+            "%d token id(s) decode to text already mapped to another id; "
+            "the last id wins and the earlier ids are unreachable.",
             shadowed,
         )
 
