@@ -24,7 +24,7 @@ def _find_real_vocab() -> Path | None:
 
 @pytest.mark.benchmark
 def test_bootstrap_builds_decoded_trie(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     transformers = pytest.importorskip("transformers")
 
@@ -39,18 +39,24 @@ def test_bootstrap_builds_decoded_trie(
     except Exception as exc:  # pragma: no cover - environment dependent
         pytest.skip(f"tokenizer unavailable: {exc}")
 
+    calls = {"count": 0}
+
     class _FakeModel:
         def get_path_to_vocab_file(self) -> str:
             return str(vocab_path)
 
         def decode(self, ids: object) -> str:
+            calls["count"] += 1
             return tokenizer.decode(ids, skip_special_tokens=True)
 
     monkeypatch.setattr(bootstrap_mod, "Small_LLM_Model", _FakeModel)
 
+    cache_dir = tmp_path / "cache"
     model, trie, token_to_decoded = (
-        bootstrap_mod.initialize_system_dependencies()
+        bootstrap_mod.initialize_system_dependencies(cache_dir=cache_dir)
     )
+    assert calls["count"] > 0
+    assert list(cache_dir.glob("*.json")), "expected a cached vocab file"
 
     assert isinstance(model, _FakeModel)
 
@@ -80,3 +86,12 @@ def test_bootstrap_builds_decoded_trie(
     # Shadowed tokens are the duplicate decoded strings, last-wins.
     shadowed = len(raw_vocab) - len(expected)
     assert shadowed > 0
+
+    # A second run must reuse the cache without decoding anything.
+    calls["count"] = 0
+    _, trie2, token_to_decoded2 = (
+        bootstrap_mod.initialize_system_dependencies(cache_dir=cache_dir)
+    )
+    assert calls["count"] == 0
+    assert trie2.size == trie.size
+    assert token_to_decoded2 == token_to_decoded

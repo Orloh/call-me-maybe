@@ -1,8 +1,29 @@
+import os
+from pathlib import Path
+from typing import Any
+
 import pytest
 import json
 from unittest.mock import MagicMock, patch, mock_open
 
 from src.engine import initialize_system_dependencies
+
+
+def _stub_model(
+    vocab_path: Path, vocab: dict[str, int]
+) -> tuple[MagicMock, list[Any]]:
+    """A fake model whose decode is the identity over `vocab`, counting calls."""
+    rev = {token_id: text for text, token_id in vocab.items()}
+    calls: list[Any] = []
+    model = MagicMock()
+    model.get_path_to_vocab_file.return_value = str(vocab_path)
+
+    def side_effect(ids: list[int]) -> str:
+        calls.append(ids[0])
+        return rev.get(ids[0], "")
+
+    model.decode.side_effect = side_effect
+    return model, calls
 
 def test_initialize_system_dependencies_success():
     """
@@ -80,3 +101,72 @@ def test_initialize_system_dependencies_file_not_found(mock_model_class):
     with patch("builtins.open", side_effect=FileNotFoundError("Missing vocab")):
         with pytest.raises(FileNotFoundError, match="Missing vocab"):
             initialize_system_dependencies()
+
+
+_VOCAB = {"hello": 0, "world": 1, "!": 2}
+_EXPECTED_MAP = {0: "hello", 1: "world", 2: "!"}
+
+
+def test_bootstrap_caches_and_reuses_decoded_vocab(tmp_path: Path) -> None:
+    vocab_file = tmp_path / "vocab.json"
+    vocab_file.write_text(json.dumps(_VOCAB), encoding="utf-8")
+    cache_dir = tmp_path / "cache"
+
+    model, calls = _stub_model(vocab_file, _VOCAB)
+
+    with patch(
+        "src.engine.bootstrap.Small_LLM_Model", return_value=model
+    ):
+        _, trie, mapping = initialize_system_dependencies(cache_dir=cache_dir)
+        assert calls == [0, 1, 2]
+        assert mapping == _EXPECTED_MAP
+        assert len(list(cache_dir.glob("*.json"))) == 1
+
+        calls.clear()
+        _, trie2, mapping2 = initialize_system_dependencies(
+            cache_dir=cache_dir
+        )
+
+    assert calls == []  # cache hit: no decode calls
+    assert mapping2 == mapping
+    assert trie2.size == trie.size
+
+
+def test_bootstrap_corrupt_cache_rebuilds(tmp_path: Path) -> None:
+    vocab_file = tmp_path / "vocab.json"
+    vocab_file.write_text(json.dumps(_VOCAB), encoding="utf-8")
+    cache_dir = tmp_path / "cache"
+    model, calls = _stub_model(vocab_file, _VOCAB)
+
+    with patch(
+        "src.engine.bootstrap.Small_LLM_Model", return_value=model
+    ):
+        initialize_system_dependencies(cache_dir=cache_dir)
+        cache_file = next(cache_dir.glob("*.json"))
+        cache_file.write_text("not valid json", encoding="utf-8")
+
+        calls.clear()
+        _, _, mapping = initialize_system_dependencies(cache_dir=cache_dir)
+
+    assert calls == [0, 1, 2]  # rebuilt from scratch
+    assert mapping == _EXPECTED_MAP
+
+
+def test_bootstrap_stale_cache_rebuilds(tmp_path: Path) -> None:
+    vocab_file = tmp_path / "vocab.json"
+    vocab_file.write_text(json.dumps(_VOCAB), encoding="utf-8")
+    cache_dir = tmp_path / "cache"
+    model, calls = _stub_model(vocab_file, _VOCAB)
+
+    with patch(
+        "src.engine.bootstrap.Small_LLM_Model", return_value=model
+    ):
+        initialize_system_dependencies(cache_dir=cache_dir)
+
+        os.utime(vocab_file, (os.path.getmtime(vocab_file) + 10,) * 2)
+
+        calls.clear()
+        initialize_system_dependencies(cache_dir=cache_dir)
+
+    assert calls == [0, 1, 2]  # new key -> rebuild
+    assert len(list(cache_dir.glob("*.json"))) == 2
