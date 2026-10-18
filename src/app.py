@@ -3,9 +3,10 @@ import logging
 import signal
 import sys
 import threading
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Sequence
+from typing import Iterator, Sequence
 
 from src.automata import UnsupportedSchemaTypeError
 from src.engine import (
@@ -64,6 +65,31 @@ class RunConfig:
     output_path: Path
     errors_path: Path
     trace: bool = False
+
+
+_HAS_PTHREAD_SIGMASK = hasattr(signal, "pthread_sigmask")
+
+
+@contextmanager
+def _defer_sigint() -> Iterator[None]:
+    """
+    Defers SIGINT delivery for the duration of the block (POSIX only).
+
+    The SIGINT handler runs on the main thread and itself saves partial
+    output, so it can otherwise interrupt an in-flight serialization.
+    Masking the signal (rather than a threading.Lock, which the handler
+    would deadlock on) lets the current write finish; the deferred signal
+    is then delivered and the handler re-saves the now-complete data.
+    """
+    if not _HAS_PTHREAD_SIGMASK:
+        yield
+        return
+
+    previous = signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGINT})
+    try:
+        yield
+    finally:
+        signal.pthread_sigmask(signal.SIG_SETMASK, previous)
 
 
 def _derive_errors_path(output_path: Path) -> Path:
@@ -192,32 +218,33 @@ def _save(
     Writes results and (only when present) failures. Returns True on
     full success; a write failure is logged and reported as False.
     """
-    ok = True
+    with _defer_sigint():
+        ok = True
 
-    try:
-        write_output(results, config.output_path)
-    except _WRITE_ERRORS as error:
-        logger.error("Failed to write results to %s: %s",
-                     config.output_path, error)
-        ok = False
-    except Exception:
-        logger.exception("Unexpected error writing results to %s",
-                         config.output_path)
-        ok = False
-
-    if failures:
         try:
-            write_errors(failures, config.errors_path)
+            write_output(results, config.output_path)
         except _WRITE_ERRORS as error:
-            logger.error("Failed to write errors to %s: %s",
-                         config.errors_path, error)
+            logger.error("Failed to write results to %s: %s",
+                         config.output_path, error)
             ok = False
         except Exception:
-            logger.exception("Unexpected error writing errors to %s",
-                             config.errors_path)
+            logger.exception("Unexpected error writing results to %s",
+                             config.output_path)
             ok = False
 
-    return ok
+        if failures:
+            try:
+                write_errors(failures, config.errors_path)
+            except _WRITE_ERRORS as error:
+                logger.error("Failed to write errors to %s: %s",
+                             config.errors_path, error)
+                ok = False
+            except Exception:
+                logger.exception("Unexpected error writing errors to %s",
+                                 config.errors_path)
+                ok = False
+
+        return ok
 
 
 def _save_partial(

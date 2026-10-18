@@ -270,20 +270,57 @@ def test_write_output_parent_is_a_file_raises_write_error(
         write_output(VALID_MOCK_RESULTS, blocker / "results.json")
 
 
+def test_write_output_preserves_existing_file_mode(tmp_path: Path) -> None:
+    test_file = tmp_path / "results.json"
+    test_file.write_text("old", encoding="utf-8")
+    os.chmod(test_file, 0o640)
+
+    write_output(VALID_MOCK_RESULTS, test_file)
+
+    assert (test_file.stat().st_mode & 0o777) == 0o640
+
+
+def test_write_output_defaults_to_readable_mode(tmp_path: Path) -> None:
+    test_file = tmp_path / "results.json"
+
+    write_output(VALID_MOCK_RESULTS, test_file)
+
+    assert (test_file.stat().st_mode & 0o777) == 0o644
+
+
 def test_write_output_permission_denied(tmp_path: Path) -> None:
-    """Test that writing to a locked/read-only file raises a PermissionDeniedError"""
-    test_file = tmp_path / "readonly_output.json"
+    """Writing into a read-only directory maps to PermissionDeniedError."""
+    locked_dir = tmp_path / "locked"
+    locked_dir.mkdir()
+    os.chmod(locked_dir, stat.S_IRUSR | stat.S_IXUSR)
 
-    test_file.touch()
-
-    os.chmod(test_file, stat.S_IRUSR)
+    test_file = locked_dir / "results.json"
 
     try:
         with pytest.raises(PermissionDeniedError) as exc_info:
             write_output(VALID_MOCK_RESULTS, test_file)
 
-
         assert "Permission denied" in str(exc_info.value)
 
     finally:
-        os.chmod(test_file, stat.S_IRUSR | stat.S_IWUSR)
+        os.chmod(locked_dir, stat.S_IRWXU)
+
+
+def test_write_output_is_atomic_and_preserves_previous_on_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A serialization failure must not clobber an existing output file."""
+    test_file = tmp_path / "results.json"
+    test_file.write_text("PREVIOUS", encoding="utf-8")
+
+    def boom(*args: object, **kwargs: object) -> None:
+        raise TypeError("not serializable")
+
+    monkeypatch.setattr(json, "dump", boom)
+
+    with pytest.raises(WriteOutputError):
+        write_output(VALID_MOCK_RESULTS, test_file)
+
+    assert test_file.read_text(encoding="utf-8") == "PREVIOUS"
+    # No leftover temp files in the directory.
+    assert [p.name for p in tmp_path.iterdir()] == ["results.json"]

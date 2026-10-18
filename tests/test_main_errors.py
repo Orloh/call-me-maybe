@@ -296,6 +296,20 @@ def test_run_restores_previous_sigint_handler(
     assert signal.getsignal(signal.SIGINT) == before
 
 
+@pytest.mark.skipif(
+    not hasattr(signal, "pthread_sigmask"), reason="POSIX only"
+)
+def test_defer_sigint_blocks_and_restores_mask() -> None:
+    before = signal.pthread_sigmask(signal.SIG_BLOCK, set())
+
+    with app._defer_sigint():
+        during = signal.pthread_sigmask(signal.SIG_BLOCK, set())
+        assert signal.SIGINT in during
+
+    after = signal.pthread_sigmask(signal.SIG_BLOCK, set())
+    assert after == before
+
+
 def test_run_can_skip_signal_handling(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

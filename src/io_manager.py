@@ -1,5 +1,7 @@
 import json
 import logging
+import os
+import tempfile
 from pathlib import Path
 from typing import Any
 from pydantic import ValidationError
@@ -151,11 +153,28 @@ def _write_records(records: list[dict[str, Any]], filepath: Path) -> None:
     """
     Serializes a list of JSON-able records to a strictly formatted JSON file.
     Shared by the results and errors writers.
+
+    The write is atomic: records are serialized to a temporary sibling file
+    and then moved into place with os.replace, so a crash or an interrupt
+    mid-write can never leave a truncated/corrupt destination file.
     """
+    tmp_name: str | None = None
     try:
         filepath.parent.mkdir(parents=True, exist_ok=True)
-        with open(filepath, "w", encoding="utf-8") as file:
+        fd, tmp_name = tempfile.mkstemp(
+            dir=str(filepath.parent),
+            prefix=f".{filepath.name}.",
+            suffix=".tmp",
+        )
+        with os.fdopen(fd, "w", encoding="utf-8") as file:
             json.dump(records, file, indent=4)
+        try:
+            mode = os.stat(filepath).st_mode & 0o777
+        except OSError:
+            mode = 0o644
+        os.chmod(tmp_name, mode)
+        os.replace(tmp_name, filepath)
+        tmp_name = None
 
     except PermissionError as error:
         raise PermissionDeniedError(
@@ -172,6 +191,13 @@ def _write_records(records: list[dict[str, Any]], filepath: Path) -> None:
             f"An unexpected error ocurred while writing to {filepath}"
         )
         raise WriteOutputError(f"Failed to write output: {error}") from error
+
+    finally:
+        if tmp_name is not None:
+            try:
+                os.unlink(tmp_name)
+            except OSError:
+                pass
 
 
 def write_output(results: list[FunctionCallResult], filepath: Path) -> None:
