@@ -120,6 +120,26 @@ def test_select_next_token_uses_llm_and_max_selection(mock_generator):
     mock_generator.model.get_logits_from_input_ids.assert_called_once_with(current_tokens)
 
 
+def test_select_next_token_ignores_out_of_range_ids(mock_generator):
+    """Token ids beyond the logits length are dropped, not indexed."""
+    current_tokens = [101]
+    allowed_ids = [1, 99]
+    mock_generator.model.get_logits_from_input_ids.return_value = [
+        1.0, 5.0, 2.0
+    ]
+
+    assert mock_generator._select_next_token(current_tokens, allowed_ids) == 1
+
+
+def test_select_next_token_raises_when_all_ids_out_of_range(mock_generator):
+    current_tokens = [101]
+    allowed_ids = [9, 99]
+    mock_generator.model.get_logits_from_input_ids.return_value = [1.0, 5.0]
+
+    with pytest.raises(RuntimeError, match="exceed the model logits length"):
+        mock_generator._select_next_token(current_tokens, allowed_ids)
+
+
 def test_advance_pda_success(mock_generator):
     """
     Proves that if the PDA accepts every character, the method completes

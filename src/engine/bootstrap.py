@@ -28,13 +28,26 @@ def initialize_system_dependencies() -> tuple[
     logger.info("Building decoded vocabulary mapping...")
     decoded_vocab: dict[str, int] = {}
     token_to_decoded: dict[int, str] = {}
+    shadowed = 0
 
     for token_str, token_id in raw_vocab.items():
         decoded = model.decode([token_id])
         if not decoded:
             continue
+        if decoded in decoded_vocab:
+            # Two ids decode to the same text. Only one id can be stored in
+            # the trie for that string; the last one encountered wins, so the
+            # shadowed id is unreachable during generation.
+            shadowed += 1
         decoded_vocab[decoded] = token_id
         token_to_decoded[token_id] = decoded
+
+    if shadowed:
+        logger.info(
+            "%d token id(s) shadowed by an earlier id decoding to the same "
+            "text (last-wins).",
+            shadowed,
+        )
 
     logger.info(
         f"Building Prefix Trie from {len(decoded_vocab)} decoded tokens..."

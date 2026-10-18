@@ -142,6 +142,38 @@ def test_process_prompt_hallucination_trap(
 
 
 @patch("src.engine.pipeline.ConstrainedGenerator")
+@patch("src.engine.pipeline.SchemaCompiler.compile_router_table")
+def test_process_prompt_propagates_max_tokens_error(
+    mock_compile_router,
+    mock_generator_class,
+    mock_model,
+    mock_trie,
+    mock_token_to_decoded,
+    sample_functions,
+):
+    """No retry: a MaxTokensExceededError propagates after a single call."""
+    from src.automata import PDAState
+    from src.engine import MaxTokensExceededError
+
+    mock_compile_router.return_value = {"name": "mock_name_fsm"}
+
+    pipeline = FunctionCallingPipeline(
+        mock_model, mock_trie, mock_token_to_decoded, sample_functions
+    )
+
+    mock_gen_instance = mock_generator_class.return_value
+    mock_gen_instance.generate.side_effect = MaxTokensExceededError(
+        partial_text="", max_new_tokens=50,
+        final_state=PDAState.EXPECTING_OBJECT_START,
+    )
+
+    with pytest.raises(MaxTokensExceededError):
+        pipeline.process_prompt("hi", sample_functions)
+
+    assert mock_gen_instance.generate.call_count == 1
+
+
+@patch("src.engine.pipeline.ConstrainedGenerator")
 @patch("src.engine.pipeline.SchemaCompiler.compile_extractor_table")
 @patch("src.engine.pipeline.SchemaCompiler.compile_router_table")
 def test_process_prompt_coerces_numbers_to_float(
@@ -216,6 +248,24 @@ def test_process_prompt_keeps_integers_as_int(
 
     assert result.parameters == {"n": 5}
     assert isinstance(result.parameters["n"], int)
+
+
+def test_coerce_parameters_rejects_key_mismatch():
+    """Unknown/missing parameter keys must surface, not be dropped."""
+    from src.engine.pipeline import _coerce_parameters
+
+    tool = FunctionDefinition(
+        name="fn_one",
+        description=".",
+        parameters={"a": ParameterField(type="number")},
+        returns=ParameterField(type="number"),
+    )
+
+    with pytest.raises(ValueError, match="do not match schema"):
+        _coerce_parameters({"a": 1, "extra": 2}, tool)
+
+    with pytest.raises(ValueError, match="do not match schema"):
+        _coerce_parameters({}, tool)
 
 
 def test_coerce_parameters_recurses_into_arrays():

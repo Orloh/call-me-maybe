@@ -47,6 +47,27 @@ def test_initialize_system_dependencies_success():
         assert trie is mock_trie_instance
         assert token_to_decoded == {0: "hello", 1: "world", 2: "!"}
 
+def test_initialize_system_dependencies_shadowed_decoded_tokens():
+    """Two ids decoding to the same text: the last id wins in the trie."""
+    raw_vocab = {"a": 0, "b": 1, "c": 2}
+    decoded_by_id = {0: "x", 1: "x", 2: "y"}
+
+    with (
+        patch("src.engine.bootstrap.Small_LLM_Model") as mock_model_class,
+        patch("src.engine.bootstrap.PrefixTrie") as mock_trie_class,
+        patch("builtins.open", mock_open(read_data=json.dumps(raw_vocab))),
+    ):
+        inst = mock_model_class.return_value
+        inst.get_path_to_vocab_file.return_value = "/fake/vocab.json"
+        inst.decode.side_effect = lambda ids: decoded_by_id.get(ids[0], "")
+        trie = mock_trie_class.return_value
+
+        _, _, token_to_decoded = initialize_system_dependencies()
+
+        trie.build_from_vocab.assert_called_once_with({"x": 1, "y": 2})
+        assert token_to_decoded == {0: "x", 1: "x", 2: "y"}
+
+
 @patch("src.engine.bootstrap.Small_LLM_Model")
 def test_initialize_system_dependencies_file_not_found(mock_model_class):
     """

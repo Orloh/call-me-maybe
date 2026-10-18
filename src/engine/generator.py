@@ -1,8 +1,12 @@
+import logging
+
 from src.automata.pda import JSONPushdownAutomaton, PDAState
 from src.trie import PrefixTrie
 from src.dfs import find_allowed_tokens
 from src.utils import GenerationTracer
 from llm_sdk import Small_LLM_Model
+
+logger = logging.getLogger(__name__)
 
 
 class MaxTokensExceededError(RuntimeError):
@@ -127,12 +131,22 @@ class ConstrainedGenerator:
 
         raw_logits = self.model.get_logits_from_input_ids(current_tokens)
 
-        best_token_id = max(
-            allowed_ids,
-            key=lambda vocab_id: raw_logits[vocab_id]
-        )
+        num_logits = len(raw_logits)
+        in_range = [vocab_id for vocab_id in allowed_ids
+                    if vocab_id < num_logits]
+        if len(in_range) != len(allowed_ids):
+            logger.warning(
+                "Dropping %d allowed token id(s) >= model logits length (%d).",
+                len(allowed_ids) - len(in_range),
+                num_logits,
+            )
+        if not in_range:
+            raise RuntimeError(
+                "All allowed token ids exceed the model logits length "
+                f"({num_logits})."
+            )
 
-        return best_token_id
+        return max(in_range, key=lambda vocab_id: raw_logits[vocab_id])
 
     def _advance_pda(self, text_chunk: str) -> None:
         """

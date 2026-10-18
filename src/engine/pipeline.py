@@ -8,7 +8,6 @@ from src.automata import JSONPushdownAutomaton, SchemaCompiler
 from src.schema import FunctionDefinition, FunctionCallResult, ParameterField
 from src.engine import (
     ConstrainedGenerator,
-    MaxTokensExceededError,
     PromptBuilder,
 )
 
@@ -47,9 +46,23 @@ def _coerce_number(value: Any, field: ParameterField) -> Any:
 def _coerce_parameters(
     parameters: dict[str, Any], tool: FunctionDefinition
 ) -> dict[str, Any]:
-    """Applies schema-driven numeric coercion to extracted parameters."""
+    """
+    Applies schema-driven numeric coercion to extracted parameters.
+
+    The extracted key set must match the tool's schema exactly; a mismatch
+    indicates a grammar/compiler regression and must surface rather than
+    silently dropping unknown keys.
+    """
+    expected = set(tool.parameters)
+    actual = set(parameters)
+    if actual != expected:
+        raise ValueError(
+            f"Extracted parameters for {tool.name!r} do not match schema: "
+            f"expected {sorted(expected)}, got {sorted(actual)}."
+        )
+
     return {
-        key: _coerce_number(parameters.get(key), field)
+        key: _coerce_number(parameters[key], field)
         for key, field in tool.parameters.items()
     }
 
@@ -108,24 +121,9 @@ class FunctionCallingPipeline:
             trace=self.trace
         )
 
-        router_json_str = ""
-        for attempt in range(2):
-            try:
-                router_json_str = (
-                    router_gen.generate(router_prompt, max_new_tokens=50)
-                    .strip()
-                )
-                break
-            except MaxTokensExceededError:
-                if attempt == 0:
-                    logger.warning("Router failed, retrying...")
-                    router_pda = JSONPushdownAutomaton(self.router_table)
-                    router_gen = ConstrainedGenerator(
-                        self.model, router_pda, self.trie,
-                        self.token_to_decoded, trace=self.trace
-                    )
-                else:
-                    raise
+        router_json_str = (
+            router_gen.generate(router_prompt, max_new_tokens=50).strip()
+        )
         logger.info("Router output: %s", router_json_str)
         selected_func_name = json.loads(router_json_str).get("name")
 
@@ -163,26 +161,10 @@ class FunctionCallingPipeline:
             trace=self.trace
         )
 
-        extractor_json_str = ""
-        for attempt in range(2):
-            try:
-                extractor_json_str = (
-                    extractor_gen.generate(
-                        extractor_prompt, max_new_tokens=300
-                    )
-                    .strip()
-                )
-                break
-            except MaxTokensExceededError:
-                if attempt == 0:
-                    logger.warning("Extractor failed, retrying...")
-                    extractor_pda = JSONPushdownAutomaton(extractor_table)
-                    extractor_gen = ConstrainedGenerator(
-                        self.model, extractor_pda, self.trie,
-                        self.token_to_decoded, trace=self.trace
-                    )
-                else:
-                    raise
+        extractor_json_str = (
+            extractor_gen.generate(extractor_prompt, max_new_tokens=300)
+            .strip()
+        )
         logger.info("Extractor output: %s", extractor_json_str)
         extracted_parameters = _coerce_parameters(
             json.loads(extractor_json_str), target_function
