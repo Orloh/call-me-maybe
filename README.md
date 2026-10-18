@@ -180,8 +180,8 @@ The PDA implements a manual `clone()` method (~30x faster than `copy.deepcopy`) 
 ### FSM Primitives
 
 Three finite-state machines handle leaf values:
-- **NumberFSM** — validates integers and floats with proper state transitions for minus signs, leading zeros, decimal points, and terminators
-- **StringLiteralFSM** — enforces JSON string rules including escape sequences and `\u` hex digits
+- **NumberFSM** — validates integers and floats with proper state transitions for minus signs, leading zeros, decimal points, and terminators. Digits are matched against the ASCII set `0-9` only, so Unicode "digits" that `str.isdigit()` accepts can never leak into the output. Exponents (`1e3`) are intentionally unsupported.
+- **StringLiteralFSM** — enforces JSON string rules including escape sequences and `\u` hex digits (ASCII hex only)
 - **ExactMatchFSM** — filters candidates char-by-char for fixed vocabularies (function names, booleans, null, JSON keys)
 
 ## Performance

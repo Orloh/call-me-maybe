@@ -11,7 +11,7 @@ make install     # uv sync --link-mode copy (installs deps, auto-installs uv if 
 make run         # python -m src (GPU-first)
 make run CPU=1   # python -m src with CUDA_VISIBLE_DEVICES="" (CPU-only machine)
 make debug       # same as run + --debug flag → per-token PDA/FSM trace in terminal
-make lint        # flake8 src + mypy src . --disallow-untyped-defs --check-untyped-defs ...
+make lint        # flake8 src + mypy src (mypy flags come from [tool.mypy] in pyproject.toml)
 make clean       # remove __pycache__, .pyc/.pyo, .mypy_cache, .pytest_cache
 ```
 
@@ -38,7 +38,7 @@ Python 3.12+ required. Package manager is `uv` (not pip). The `llm_sdk` package 
 
 - **`llm_sdk.Small_LLM_Model`** (in `llm_sdk/llm_sdk/__init__.py`) wraps a HuggingFace causal LM (default `Qwen/Qwen3-0.6B`). Its `get_logits_from_input_ids(input_ids)` returns **raw logits** (no softmax) — the generator picks the max-logit allowed token id by indexing into this list.
 - **`src/automata/`** is the grammar engine:
-  - `primitives.py` — three FSMs (`NumberFSM`, `StringLiteralFSM`, `ExactMatchFSM`). Each implements `accepts_char(c) -> bool` (non-mutating mirror of `advance`) — this is the contract the trie DFS uses to pre-filter edges. `allowed_characters()` is a legacy finite mask (only correct for finite sets like NumberFSM/ExactMatchFSM; not used by production DFS). `NumberFSM` supports `mode="integer"` (rejects decimal point) and `mode="number"` (allows decimals). `StringLiteralFSM` enforces exactly 4 hex digits after `\u` escapes via `StringState.HEX_SEQUENCE`.
+  - `primitives.py` — three FSMs (`NumberFSM`, `StringLiteralFSM`, `ExactMatchFSM`). Each implements `accepts_char(c) -> bool` (non-mutating mirror of `advance`) — this is the contract the trie DFS uses to pre-filter edges. Digit recognition is **ASCII-only** (`NumberFSM.DIGITS` / `StringLiteralFSM.HEX_DIGITS`), never `str.isdigit()`, so Unicode "digits" (², ٣, ０) cannot produce JSON that `json.loads` rejects. `NumberFSM` supports `mode="integer"` (rejects decimal point) and `mode="number"` (allows decimals); exponents (`e`/`E`) are intentionally unsupported. `StringLiteralFSM` enforces exactly 4 hex digits after `\u` escapes via `StringState.HEX_SEQUENCE`.
   - `compiler.py` — `SchemaCompiler` translates `FunctionDefinition` pydantic models into routing tables: `CompiledSchema = dict[str, ValueSpec]`, where `ValueSpec = Callable[[], BaseFSM] | ArraySpec | ObjectSpec`. Scalar params map to a **factory** (fresh FSM per parse); array params to a frozen `ArraySpec` (whose `item` is itself a `ValueSpec`, so arrays nest); object params to a frozen `ObjectSpec` (all-required `fields`). All via `_compile_field`, which recurses.
   - `pda.py` — `JSONPushdownAutomaton` enforces JSON structure via a **frame stack** (`stack: list[_Frame]`), one frame per open object/array. Each OBJECT frame holds its own `remaining_required` keys / `fields` / `current_spec`; each ARRAY frame holds its `item_spec` / `just_opened`. Nested objects, arrays of objects, and arrays of arrays are supported; empty `{}`/`[]` allowed; unknown/duplicate keys rejected per scope. `EXPECTING_OBJECT_START`/`EXPECTING_ARRAY_START` open scopes; `_close_scope()` pops and returns to the parent. `accepts_char()` is the DFS mask and must mirror `advance()`. `clone()` copies the frame stack (`_Frame.clone()`) plus pending fields/item spec; `remaining_key_count()` is a read-only tracing helper.
 - **`src/trie/trie.py`** — `PrefixTrie` stores the entire model vocab as char-paths; `build_from_vocab()` is called once at bootstrap with the **decoded** token strings (obtained via the tokenizer's `decode()`, so `Ġ`→space, `Ċ`→newline, etc.). This guarantees the trie and PDA operate on the same character representation.
@@ -60,7 +60,7 @@ Python 3.12+ required. Package manager is `uv` (not pip). The `llm_sdk` package 
 
 - **`pythonpath = "."` in pytest config** — `src` and `llm_sdk` are importable as top-level packages. Tests use `from src.automata import ...` and `from llm_sdk import Small_LLM_Model` directly.
 - **`SchemaCompiler` and `PromptBuilder` are non-instantiable** (`__init__` raises `NotImplementedError`) — all methods are `@classmethod`s.
-- **Mypy is strict** (`--disallow-untyped-defs --check-untyped-defs --warn-return-any --warn-unused-ignores`). Write typed functions.
+- **Mypy is strict** — flags live in `[tool.mypy]` in `pyproject.toml` (`disallow_untyped_defs`, `check_untyped_defs`, `warn_return_any`, `warn_unused_ignores`, `mypy_path = "."`). Write typed functions. `make lint` reads this config, and the opencode LSP runs the **same mypy** via `pylsp` + `pylsp-mypy` (configured in `opencode.json`, which disables pyright), so LSP diagnostics match the gate.
 - **`ExactMatchFSM`** is used for anything with a fixed vocabulary: booleans (`true`/`false`), `null`, enum literals, JSON keys, function names. It filters candidates char-by-char via `accepts_char`.
 - **The PDA enforces key completeness** — `remaining_keys` tracks required params; closing `}` while keys remain is rejected. Unknown keys are also rejected. Type mismatches (e.g., opening `"` for a `number` param) are rejected at the first char.
 - **`accepts_char`/`terminates_on`/`clone` contract** — every FSM and the PDA implement three non-mutating methods used by the DFS mask: `accepts_char(c)` (mirror of `advance`), `terminates_on(c)` (mirror of the FSM→PDA hand-off), and `clone()` (cheap copy sharing immutable fields). When changing `advance()` logic in any FSM or the PDA, you MUST update its `accepts_char` mirror in the same commit — `tests/test_automata_predicates.py` checks the invariant.
@@ -68,7 +68,9 @@ Python 3.12+ required. Package manager is `uv` (not pip). The `llm_sdk` package 
 - **Generator fast-forward** — when `len(allowed_ids) == 1`, the token is returned without querying the LLM. This is a performance optimization, not a correctness one.
 - **`pyrightconfig.json`** adds `./llm_sdk` to `extraPaths` so static analysis can import it. Don't remove this.
 - **`llm_sdk/pyproject.toml`** is a **separate package** with its own deps (torch, transformers, etc.). Changes to the SDK's interface require checking `pyrightconfig.json` and possibly the main `pyproject.toml`'s `uv.sources` entry.
-- **`generator.py` has a stray `print(debug)` in `__init__`** (line 24) — leftover debug statement. Safe to remove but unrelated to any bug.
+- **Output writes are atomic** — `io_manager._write_records` serializes to a temp sibling and `os.replace`s it into place. `app._save` defers SIGINT (`signal.pthread_sigmask`) during the write; a `threading.Lock` would deadlock because the SIGINT handler runs on the same thread.
+- **No router/extractor retry** — decoding is greedy, so a retry would reproduce the same `MaxTokensExceededError`; it now propagates to `app._PROMPT_ERRORS`.
+- **JSON-escaped keys/names** — the PDA key FSM and `SchemaCompiler` build candidates with `json.dumps(..., ensure_ascii=False)`, so property/function names containing quotes, backslashes, or unicode are representable.
 
 ## Testing
 
