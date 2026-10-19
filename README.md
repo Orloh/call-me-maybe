@@ -79,10 +79,10 @@ Directory or non-UTF-8 input files, and output paths whose parent is a
 regular file, are reported as exit 2 rather than crashing. Ctrl-C saves
 partial results (and any recorded failures) before exiting 130.
 
-### Debug Mode
+### Trace Mode
 
 ```bash
-make debug
+make trace
 ```
 
 Enables per-token PDA and FSM state tracing to the terminal, showing every generation step and the remaining schema keys.
