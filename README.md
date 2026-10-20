@@ -45,6 +45,10 @@ The same can be done directly:
 CUDA_VISIBLE_DEVICES="" uv run python -m src
 ```
 
+Both invocations share the repo-local Hugging Face cache in `.hf_cache/`:
+`make` exports `HF_HOME`, and the entry point sets it (only when unset)
+before importing the model. Set `HF_HOME` yourself to use a different cache.
+
 Or with custom paths:
 
 ```bash
