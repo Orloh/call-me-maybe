@@ -3,10 +3,10 @@ import logging
 import signal
 import sys
 import threading
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator, Sequence
 
 from src.automata import UnsupportedSchemaTypeError
 from src.engine import (
@@ -22,22 +22,24 @@ from src.io_manager import (
     WriteOutputError,
     load_function_definitions,
     load_prompts,
-    write_errors,
     write_output,
 )
 from src.schema import (
     FunctionCallResult,
     FunctionDefinition,
-    PromptFailure,
     PromptItem,
 )
 
 logger = logging.getLogger(__name__)
 
 EXIT_SUCCESS = 0
-EXIT_PROMPT_FAILURES = 1
 EXIT_STARTUP_ERROR = 2
 EXIT_INTERRUPTED = 130
+
+# Sentinel used when a prompt cannot be routed or processed. It is not a
+# function from functions_definition.json; it keeps the output to exactly one
+# object per prompt while signalling "no call could be produced".
+NO_FUNCTION = "none"
 
 _INPUT_ERRORS = (
     InputFileNotFoundError,
@@ -63,7 +65,6 @@ class RunConfig:
     functions_path: Path
     prompts_path: Path
     output_path: Path
-    errors_path: Path
     trace: bool = False
 
 
@@ -92,13 +93,8 @@ def _defer_sigint() -> Iterator[None]:
         signal.pthread_sigmask(signal.SIG_SETMASK, previous)
 
 
-def _derive_errors_path(output_path: Path) -> Path:
-    return output_path.with_name(
-        f"{output_path.stem}_errors{output_path.suffix}"
-    )
-
-
-def _project_defaults() -> tuple[Path, Path, Path, Path]:
+def _project_defaults() -> tuple[Path, Path, Path]:
+    """Returns the default functions, prompts, and results paths."""
     root = Path(__file__).resolve().parent.parent
     input_dir = root / "data" / "input"
     output_dir = root / "data" / "output"
@@ -106,7 +102,6 @@ def _project_defaults() -> tuple[Path, Path, Path, Path]:
         input_dir / "functions_definition.json",
         input_dir / "function_calling_tests.json",
         output_dir / "function_calling_results.json",
-        output_dir / "function_calling_errors.json",
     )
 
 
@@ -114,13 +109,10 @@ def parse_args(argv: Sequence[str] | None = None) -> RunConfig:
     """
     Parses CLI arguments into a resolved RunConfig.
 
-    Explicit paths override the project defaults. When `--output` is given
-    without `--errors_output`, the errors path is derived from it
-    (e.g. `results.json` -> `results_errors.json`).
+    Explicit paths override the project defaults. The results file is the
+    only file written by a run.
     """
-    default_functions, default_prompts, default_output, default_errors = (
-        _project_defaults()
-    )
+    default_functions, default_prompts, default_output = _project_defaults()
 
     parser = argparse.ArgumentParser(
         description="Run the Function Calling Pipeline."
@@ -151,13 +143,6 @@ def parse_args(argv: Sequence[str] | None = None) -> RunConfig:
         help="Path to write results JSON "
              "(default: data/output/function_calling_results.json)."
     )
-    parser.add_argument(
-        "--errors_output",
-        type=str,
-        default=None,
-        help="Path to write per-prompt failures JSON "
-             "(default: derived from --output)."
-    )
     args = parser.parse_args(argv)
 
     functions_path = (
@@ -176,18 +161,10 @@ def parse_args(argv: Sequence[str] | None = None) -> RunConfig:
         else default_output
     )
 
-    if args.errors_output:
-        errors_path = Path(args.errors_output).resolve()
-    elif args.output:
-        errors_path = _derive_errors_path(output_path)
-    else:
-        errors_path = default_errors
-
     return RunConfig(
         functions_path=functions_path,
         prompts_path=prompts_path,
         output_path=output_path,
-        errors_path=errors_path,
         trace=args.trace,
     )
 
@@ -195,82 +172,67 @@ def parse_args(argv: Sequence[str] | None = None) -> RunConfig:
 def _load_inputs(
     config: RunConfig
 ) -> tuple[list[FunctionDefinition], list[PromptItem]]:
+    """Loads and validates the function definitions and prompt files."""
     logger.info("Loading function definitions and prompts...")
     available_functions = load_function_definitions(config.functions_path)
     prompt_items = load_prompts(config.prompts_path)
     return available_functions, prompt_items
 
 
-def _make_failure(prompt: str, error: Exception) -> PromptFailure:
-    return PromptFailure(
-        prompt=prompt,
-        error_type=type(error).__name__,
-        error=str(error),
-    )
-
-
-def _save(
-    results: list[FunctionCallResult],
-    failures: list[PromptFailure],
-    config: RunConfig,
-) -> bool:
+def _placeholder(prompt: str) -> FunctionCallResult:
     """
-    Writes results and (only when present) failures. Returns True on
-    full success; a write failure is logged and reported as False.
+    Builds the ``none`` result recorded when a prompt cannot be processed.
+
+    The errors file was removed so that a run produces exactly one JSON file;
+    a failure is still represented by one object in that file.
+    """
+    return FunctionCallResult(prompt=prompt, name=NO_FUNCTION, parameters={})
+
+
+def _save(results: list[FunctionCallResult], config: RunConfig) -> bool:
+    """
+    Writes the results file atomically.
+
+    Returns True on success; a write failure is logged and reported as False.
     """
     with _defer_sigint():
-        ok = True
-
         try:
             write_output(results, config.output_path)
         except _WRITE_ERRORS as error:
             logger.error("Failed to write results to %s: %s",
                          config.output_path, error)
-            ok = False
+            return False
         except Exception:
             logger.exception("Unexpected error writing results to %s",
                              config.output_path)
-            ok = False
-
-        if failures:
-            try:
-                write_errors(failures, config.errors_path)
-            except _WRITE_ERRORS as error:
-                logger.error("Failed to write errors to %s: %s",
-                             config.errors_path, error)
-                ok = False
-            except Exception:
-                logger.exception("Unexpected error writing errors to %s",
-                                 config.errors_path)
-                ok = False
-
-        return ok
+            return False
+        return True
 
 
 def _save_partial(
     results: list[FunctionCallResult],
-    failures: list[PromptFailure],
     config: RunConfig,
 ) -> None:
     """
-    Persists partial output on interrupt, but never clobbers existing
-    output files with an empty result set.
+    Persists partial output on interrupt.
+
+    Never clobbers an existing output file with an empty result set.
     """
-    if results or failures:
-        _save(results, failures, config)
+    if results:
+        _save(results, config)
 
 
 def _run_body(
     config: RunConfig,
     results: list[FunctionCallResult],
-    failures: list[PromptFailure],
 ) -> int:
     """
     Core run: load inputs, bootstrap, then process every prompt.
 
     Inputs are loaded before the model is bootstrapped so that invalid
     input fails fast (exit 2) without paying for model startup. A failure
-    on one prompt is recorded and does not abort the run.
+    on one prompt is logged and recorded as a ``none`` placeholder result,
+    so the output always contains exactly one object per prompt.
     """
     try:
         available_functions, prompt_items = _load_inputs(config)
@@ -309,6 +271,7 @@ def _run_body(
     logger.info("Starting generation loop for %d prompt(s)...",
                 len(prompt_items))
 
+    failed = 0
     for index, item in enumerate(prompt_items, 1):
         logger.info("Processing [%d/%d]: %r",
                     index, len(prompt_items), item.prompt)
@@ -319,20 +282,22 @@ def _run_body(
 
         except _PROMPT_ERRORS as error:
             logger.warning("-> Failed on prompt [%d]: %s", index, error)
-            failures.append(_make_failure(item.prompt, error))
+            results.append(_placeholder(item.prompt))
+            failed += 1
 
-        except Exception as error:
+        except Exception:
             logger.exception("-> Unexpected failure on prompt [%d]", index)
-            failures.append(_make_failure(item.prompt, error))
+            results.append(_placeholder(item.prompt))
+            failed += 1
 
-    if not _save(results, failures, config):
+    if not _save(results, config):
         return EXIT_STARTUP_ERROR
 
     logger.info(
         "Pipeline complete: %d succeeded, %d failed.",
-        len(results), len(failures)
+        len(results) - failed, failed
     )
-    return EXIT_PROMPT_FAILURES if failures else EXIT_SUCCESS
+    return EXIT_SUCCESS
 
 
 def run(config: RunConfig, *, handle_signals: bool = True) -> int:
@@ -345,29 +310,30 @@ def run(config: RunConfig, *, handle_signals: bool = True) -> int:
     afterwards. Off the main thread, signal registration is skipped.
     """
     results: list[FunctionCallResult] = []
-    failures: list[PromptFailure] = []
 
     def _handle_interrupt(sig: int, frame: object) -> None:
+        """Saves partial results on SIGINT and exits with status 130."""
         logger.info("Interrupted by user. Saving partial results...")
         try:
-            _save_partial(results, failures, config)
+            _save_partial(results, config)
         except Exception:  # pragma: no cover - best-effort save
             logger.exception("Failed to save partial results")
         sys.exit(EXIT_INTERRUPTED)
 
     main_thread = threading.current_thread() is threading.main_thread()
     if not (handle_signals and main_thread):
-        return _run_body(config, results, failures)
+        return _run_body(config, results)
 
     previous_handler = signal.getsignal(signal.SIGINT)
     signal.signal(signal.SIGINT, _handle_interrupt)
     try:
-        return _run_body(config, results, failures)
+        return _run_body(config, results)
     finally:
         signal.signal(signal.SIGINT, previous_handler)
 
 
 def main() -> None:
+    """Configures logging, parses arguments, runs the pipeline, and exits."""
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s - %(levelname)s - %(message)s",

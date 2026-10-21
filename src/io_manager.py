@@ -8,7 +8,6 @@ from pydantic import ValidationError
 from src.schema import (
     FunctionCallResult,
     FunctionDefinition,
-    PromptFailure,
     PromptItem,
 )
 
@@ -207,16 +206,7 @@ def _write_records(records: list[dict[str, Any]], filepath: Path) -> None:
 def write_output(results: list[FunctionCallResult], filepath: Path) -> None:
     """
     Serializes a list of LLM function call results to a strictly
-    formatted JSON file.
+    formatted JSON file. This is the program's only output file.
     """
     serialized_data = [result.model_dump() for result in results]
-    _write_records(serialized_data, filepath)
-
-
-def write_errors(errors: list[PromptFailure], filepath: Path) -> None:
-    """
-    Serializes a list of per-prompt failures to a strictly formatted
-    JSON file, kept separate from the results output.
-    """
-    serialized_data = [error.model_dump() for error in errors]
     _write_records(serialized_data, filepath)

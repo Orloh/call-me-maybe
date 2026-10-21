@@ -78,8 +78,6 @@ class SchemaCompiler:
         if not valid_function_names:
             return {}
 
-        valid_function_names.append('"none"')
-
         return {
             "name": _make_exact_match_factory(valid_function_names)
         }

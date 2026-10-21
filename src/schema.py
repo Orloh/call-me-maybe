@@ -28,6 +28,7 @@ class ParameterField(BaseModel):
 
     @model_validator(mode="after")
     def _validate_shape(self) -> "ParameterField":
+        """Enforces the per-type keyword shape of a parameter field."""
         if self.type == "array":
             if self.items is None:
                 raise ValueError("array parameters require an 'items' field")
@@ -93,12 +94,3 @@ class FunctionCallResult(BaseModel):
     prompt: str
     name: str
     parameters: dict[str, Any]
-
-
-class PromptFailure(BaseModel):
-    """Records a prompt that could not be processed by the pipeline."""
-    model_config = ConfigDict(extra='forbid')
-
-    prompt: str
-    error_type: str
-    error: str

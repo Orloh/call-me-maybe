@@ -60,7 +60,8 @@ def test_compile_router_table():
     assert isinstance(name_fsm, ExactMatchFSM)
     assert '"fn_add"' in name_fsm.active_candidates
     assert '"fn_subtract"' in name_fsm.active_candidates
-    assert '"none"' in name_fsm.active_candidates
+    # Routing must only offer real functions (no non-schema "none" sentinel).
+    assert '"none"' not in name_fsm.active_candidates
 
 
 def test_compile_router_table_escapes_names():
