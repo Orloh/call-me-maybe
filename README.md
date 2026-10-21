@@ -4,7 +4,7 @@
 
 ## Description
 
-call-me-maybe is a from-scratch function-calling engine for Small Language Models (SLMs). It uses constrained decoding with a pushdown automaton (PDA) and token tries to guarantee 100% schema-valid JSON output from a 0.6B parameter model (Qwen/Qwen3-0.6B).
+call-me-maybe is a from-scratch function-calling engine for Small Language Models (SLMs). It uses constrained decoding with a pushdown automaton (PDA) and token tries to guarantee 100% parseable JSON output from a 0.6B parameter model (Qwen/Qwen3-0.6B), with every function call constrained to its schema.
 
 Given a natural-language request like *"What is the sum of 2 and 3?"*, the system returns a structured function call:
 
@@ -26,7 +26,7 @@ Both phases use the same constrained-decoding core: a prefix trie over the model
 make install
 ```
 
-This runs `uv sync --link-mode copy`, which installs dependencies and configures the local `llm_sdk` package as an editable dependency.
+This runs `uv sync --no-cache`, which installs dependencies and configures the local `llm_sdk` package as an editable dependency.
 
 ### Running
 ```bash
@@ -55,38 +55,43 @@ Or with custom paths:
 CUDA_VISIBLE_DEVICES="" uv run python -m src \
     --functions_definition data/input/functions_definition.json \
     --input data/input/function_calling_tests.json \
-    --output data/output/function_calling_results.json \
-    --errors_output data/output/function_calling_errors.json
+    --output data/output/function_calling_results.json
 ```
 
-`--errors_output` is optional: when omitted it defaults to a sibling of
-`--output` (e.g. `results.json` → `results_errors.json`).
+The results file is the **only** file written by a run.
 
 ### Error Handling & Exit Codes
 
-The CLI is best-effort per prompt: a failure on one prompt is recorded to
-the errors file and the run continues. Exit codes are:
+The CLI is best-effort per prompt: every prompt produces exactly one object
+in the results file. If a prompt cannot be routed or processed, the error is
+logged and recorded as:
+
+```json
+{"prompt": "...", "name": "none", "parameters": {}}
+```
+
+`none` is a failure sentinel — it is **not** a function from
+`functions_definition.json`. Normal runs (including ambiguous prompts) route
+to one of the available functions. Exit codes are:
 
 | Code | Meaning |
 |---|---|
-| 0 | All prompts produced a result |
-| 1 | Ran, but at least one prompt failed (see errors file) |
-| 2 | Startup failure: missing/invalid input, schema error, or bootstrap/IO error |
+| 0 | Ran to completion; the results file was written |
+| 2 | Startup failure: missing/invalid input, schema error, bootstrap or write error |
 | 130 | Interrupted (Ctrl-C); partial results were saved |
 
 Inputs are loaded **before** the model is bootstrapped, so invalid input
-fails fast without paying for model startup. The results file keeps the
-same shape as always (successful calls only); failures are written to a
-separate `function_calling_errors.json`.
+fails fast without paying for model startup.
 
 Directory or non-UTF-8 input files, and output paths whose parent is a
 regular file, are reported as exit 2 rather than crashing. Ctrl-C saves
-partial results (and any recorded failures) before exiting 130.
+partial results before exiting 130.
 
 ### Trace Mode
 
 ```bash
 make trace
+# or: uv run python -m src --trace
 ```
 
 Enables per-token PDA and FSM state tracing to the terminal, showing every generation step and the remaining schema keys.
@@ -94,10 +99,13 @@ Enables per-token PDA and FSM state tracing to the terminal, showing every gener
 ### Linting
 
 ```bash
-make lint
+make lint          # flake8 . + mypy . with the mandatory flags
+make lint-strict   # flake8 . + mypy . --strict
 ```
 
-Runs flake8 and mypy with strict settings.
+`flake8 .` and `mypy .` are the commands required by the subject. Tests,
+scripts, and the vendored `llm_sdk` are excluded through `.flake8` and
+`[tool.mypy]` because they are not part of the implementation under test.
 
 ### Cleaning
 
@@ -117,7 +125,8 @@ At each generation step, the model produces logits over its 150k-token vocabular
 2. **Mask** each trie edge through the PDA's `accepts_char()` method (non-mutating, cheap)
 3. **Clone** the PDA for each surviving edge and feed the character via `advance()` to confirm validity
 4. **Collect** all token IDs that survive the full DFS traversal
-5. **Select** the max-logit token from the allowed set, or fast-forward when only one token is valid
+5. **Drop optional structural whitespace** (spaces/newlines between JSON tokens) so a model cannot stall in a state such as `EXPECTING_OBJECT_START`; whitespace inside strings is preserved
+6. **Select** the max-logit token from the allowed set, or fast-forward when only one token is valid
 
 This guarantees that every output token contributes to valid, schema-compliant JSON.
 
@@ -133,7 +142,7 @@ The trie stores the model's entire vocabulary as character-level paths. It is bu
 
 ### Two-Phase Pipeline
 
-Routing and extraction are separated into two generation calls with distinct PDAs. This keeps each grammar tight: the router PDA only accepts `{"name": "fn_x"}` or `{"name": "none"}`, while the extractor PDA only accepts the chosen function's parameter schema. A single-shot approach would require a more complex PDA supporting nested objects.
+Routing and extraction are separated into two generation calls with distinct PDAs. This keeps each grammar tight: the router PDA only accepts `{"name": "fn_x"}` for a function in the current catalog, while the extractor PDA only accepts the chosen function's parameter schema. A single-shot approach would require a more complex PDA supporting nested objects. The `none` failure sentinel is produced by the CLI, never by the router grammar.
 
 ### Recursive Values (Objects and Arrays)
 
@@ -166,6 +175,15 @@ each carrying its own remaining-required keys, current field spec, or element
 spec. `EXPECTING_OBJECT_START`/`EXPECTING_ARRAY_START` open new scopes, and
 `clone()` copies the frame stack so the DFS mask stays independent per branch.
 
+### Pydantic Validation
+
+Every data model crossing the program's boundaries (`ParameterField`,
+`FunctionDefinition`, `PromptItem`, `FunctionCallResult`) is a Pydantic
+`BaseModel` with `extra='forbid'` and custom validators. The FSMs, the PDA,
+the trie, and the generator are **stateful algorithms**, not data containers;
+keeping them as plain classes avoids validation overhead on the DFS hot path
+(especially `_Frame.clone()`) without losing any safety at the I/O boundary.
+
 ### Numeric Output Coercion
 
 The grammar accepts both `6` and `6.0` for a `number` parameter. To match the
@@ -194,16 +212,19 @@ On the 11-prompt test suite with Qwen/Qwen3-0.6B:
 
 | Metric | Value |
 |---|---|
-| Accuracy | 91% (10/11 prompts correct) |
+| Accuracy | 100% (11/11 prompts correct) |
 | Valid JSON | 100% |
 | Routing correctness | 11/11 |
+| Number extraction (add + sqrt) | 4/4 |
+| String extraction (greet + reverse) | 4/4 |
 | Regex extraction | 3/3 |
-| Number extraction | 4/4 |
-| String extraction | 2/4 (model limitation: reverses instead of extracting verbatim) |
-| Sqrt extraction | 2/2 (fixed via few-shot examples) |
-| Total time | ~5 minutes (no KV cache) |
+| Total time | ~3 minutes on the campus evaluation machine (GPU; no KV cache) |
 
-The 91% accuracy meets the 90%+ target. The two remaining failures are both `fn_reverse_string` prompts where the 0.6B model cannot separate the function's purpose ("reverse a string") from the extraction task ("extract the input verbatim"). This is a known model-scale limitation.
+All 11 prompts are correct. The `fn_reverse_string` case is handled by a
+scoped extraction instruction and example that are added only for functions
+with a single string parameter, so the model extracts the argument instead of
+computing the result. CPU-only runs are slower because the model has no KV
+cache.
 
 ## Challenges Faced
 
@@ -219,11 +240,16 @@ The trie must be built from the tokenizer's **decoded** token strings (with `Ġ`
 
 ### Regex Overgeneralization
 
-The model was generating `[0-9]+` for every regex field, even for literal word substitutions (e.g., replacing `'cat'` → `[0-9]+`). Fixed by adding explicit regex rules in the extraction prompt with few-shot examples covering both class-based patterns and literal words.
+The model was generating `[0-9]+` for every regex field, even for literal word substitutions (e.g., replacing `'cat'` → `[0-9]+`). Fixed by adding explicit generic regex rules to the extraction prompt: class-based patterns for numbers/vowels/whitespace, and the literal quoted word for specific substitutions.
 
 ### Reverse/Sqrt Computation
 
-The model computes answers instead of extracting arguments for `fn_reverse_string` (reverses the string) and `fn_get_square_root` (computes the square root). Partially mitigated with function-specific counter-examples and a verbatim extraction instruction. The reverse case remains at the model's 0.6B ceiling.
+The model computes answers instead of extracting arguments for
+`fn_reverse_string` (reverses the string) and `fn_get_square_root` (computes
+the square root). A generic verbatim-extraction instruction plus a scoped
+example — added only for functions with a single string parameter — fixes the
+reverse case without hardcoding function names, while the same reminder keeps
+the numeric cases extracting rather than computing.
 
 ## Testing Strategy
 
@@ -237,7 +263,7 @@ The model computes answers instead of extracting arguments for `fn_reverse_strin
 - **Array tests** (`test_arrays.py`): array schema validation, compiler mapping, PDA accept/reject (`[]`, `[1,2]`, `[1,]`, type mismatch)
 - **Object tests** (`test_objects.py`): nested objects, arrays of objects, arrays of arrays, empty objects, per-scope key/type enforcement
 - **Engine tests**: generation loop, fast-forward, token selection
-- **CLI error-handling tests** (`test_main_errors.py`): load errors exit 2 before bootstrap, per-prompt failures are isolated and recorded, exit codes 0/1/2
+- **CLI error-handling tests** (`test_main_errors.py`): load errors exit 2 before bootstrap, per-prompt failures become `none` placeholders while the run still exits 0, and startup exits 2
 
 ### End-to-End Tests
 
@@ -287,9 +313,13 @@ pytest -m benchmark -s        # run benchmarks opt-in
 ### AI Usage
 
 AI was used throughout this project for:
-- Prompt engineering iteration and analysis of model outputs
-- Debugging PDA state transition and DFS clone-storm issues
-- Documentation and README writing
-- Test generation for edge cases
+- Prompt engineering for `src/engine/prompt_builder.py` and analysis of
+  model outputs
+- Debugging the PDA state transitions in `src/automata/pda.py` and the DFS
+  clone-storm in `src/dfs/dfs.py`
+- Reviewing the constrained-decoding design (`src/automata`, `src/trie`,
+  `src/dfs`) and the error-handling code in `src/app.py` / `src/io_manager.py`
+- Writing and polishing this README and `AGENTS.md`
+- Generating edge-case tests under `tests/`
 
 All AI-generated code was reviewed, tested, and understood before being committed. Peer review was conducted regularly to validate design decisions and catch blind spots.
