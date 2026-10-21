@@ -3,7 +3,7 @@ import torch
 import math
 from unittest.mock import MagicMock, patch, call
 from src.engine import ConstrainedGenerator
-from src.automata import PDAState
+from src.automata import PDAState, StringLiteralFSM
 
 
 @pytest.fixture
@@ -48,6 +48,44 @@ def test_get_allowed_tokens_deadlock_raises_error(mock_find_allowed, mock_genera
 
     with pytest.raises(RuntimeError, match="Grammar deadlock"):
         mock_generator._get_allowed_tokens()
+
+
+@patch("src.engine.generator.find_allowed_tokens")
+def test_get_allowed_tokens_drops_structural_whitespace(
+    mock_find_allowed, mock_generator
+):
+    """Whitespace at a structural state must not stall the grammar."""
+    mock_find_allowed.return_value = [1, 2, 3]
+    mock_generator.token_to_decoded = {1: " ", 2: "\n", 3: "{"}
+    mock_generator.pda.active_fsm = None
+
+    assert mock_generator._get_allowed_tokens() == [3]
+
+
+@patch("src.engine.generator.find_allowed_tokens")
+def test_get_allowed_tokens_keeps_string_content_whitespace(
+    mock_find_allowed, mock_generator
+):
+    """Spaces inside a string are content, not structural whitespace."""
+    fsm = StringLiteralFSM()
+    fsm.advance('"')  # INSIDE_STRING
+    mock_generator.pda.active_fsm = fsm
+    mock_generator.token_to_decoded = {1: " "}
+    mock_find_allowed.return_value = [1]
+
+    assert mock_generator._get_allowed_tokens() == [1]
+
+
+@patch("src.engine.generator.find_allowed_tokens")
+def test_get_allowed_tokens_falls_back_if_only_whitespace(
+    mock_find_allowed, mock_generator
+):
+    """A pathological state falls back rather than reporting a deadlock."""
+    mock_find_allowed.return_value = [1, 2]
+    mock_generator.token_to_decoded = {1: " ", 2: "\n"}
+    mock_generator.pda.active_fsm = None
+
+    assert mock_generator._get_allowed_tokens() == [1, 2]
 
 
 def test_generate_loop_orchestration(mock_generator):

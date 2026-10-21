@@ -15,7 +15,12 @@ from pathlib import Path
 
 import pytest
 
-from src.automata import SchemaCompiler, JSONPushdownAutomaton
+from src.automata import (
+    CompiledSchema,
+    JSONPushdownAutomaton,
+    NumberFSM,
+    SchemaCompiler,
+)
 from src.engine import ConstrainedGenerator, PromptBuilder
 from src.schema import FunctionDefinition, ParameterField
 from src.trie import PrefixTrie
@@ -236,6 +241,43 @@ def test_e2e_deterministic_nested_object_synthetic_vocab() -> None:
     assert json.loads(output) == {"config": {"n": 7}}
 
 
+_WHITESPACE_VOCAB = {
+    "{": 0, '"a"': 1, ":": 2, "1": 3, "}": 4, " ": 5, "\n": 6,
+}
+
+
+def test_e2e_generator_skips_structural_whitespace() -> None:
+    """
+    A model that strongly prefers whitespace must still make progress.
+
+    Optional structural whitespace is filtered from the allowed set, so the
+    generator fast-forwards through ``{"a":1}`` instead of looping on spaces
+    and newlines at EXPECTING_OBJECT_START.
+    """
+    trie = _build_trie(_WHITESPACE_VOCAB)
+    token_to_decoded = {v: k for k, v in _WHITESPACE_VOCAB.items()}
+
+    class _WhitespaceLover(_ScriptedModel):
+        def get_logits_from_input_ids(
+            self, input_ids: list[int]
+        ) -> list[float]:
+            logits = [1.0] * self._vocab_size
+            logits[_WHITESPACE_VOCAB[" "]] = 100.0
+            logits[_WHITESPACE_VOCAB["\n"]] = 100.0
+            # Prefer closing the number over extending it forever.
+            logits[_WHITESPACE_VOCAB["}"]] = 50.0
+            return logits
+
+    model = _WhitespaceLover(_WHITESPACE_VOCAB)
+    schema: CompiledSchema = {"a": lambda: NumberFSM()}
+    pda = JSONPushdownAutomaton(schema)
+    gen = ConstrainedGenerator(model, pda, trie, token_to_decoded)
+
+    output = gen.generate("ignored", max_new_tokens=20)
+
+    assert json.loads(output) == {"a": 1}
+
+
 # ---------------------------------------------------------------------------
 # Test 2: Phase 1 routing with the real Qwen vocab
 # ---------------------------------------------------------------------------
@@ -338,4 +380,4 @@ def test_e2e_routing_decoded_vocab() -> None:
     output = gen.generate("Greet Alice", max_new_tokens=50)
     parsed = json.loads(output)
 
-    assert parsed.get("name") in {"fn_greet", "none"}, parsed
+    assert parsed.get("name") == "fn_greet", parsed

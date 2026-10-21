@@ -108,14 +108,45 @@ class ConstrainedGenerator:
         return generated_text
 
     def _get_allowed_tokens(self) -> list[int]:
-        """Queries the DFS to find gramatically valid next tokens."""
+        """
+        Queries the DFS for grammatically valid next tokens.
+
+        Optional structural whitespace is dropped: the PDA accepts spaces and
+        newlines between JSON tokens, but letting the model emit them can stall
+        a state (e.g. EXPECTING_OBJECT_START) until max_new_tokens. Whitespace
+        consumed as string content is kept.
+        """
         allowed_ids = find_allowed_tokens(self.trie.root, self.pda)
+        progress_ids = [
+            token_id for token_id in allowed_ids
+            if not self._is_structural_whitespace(token_id)
+        ]
+        allowed_ids = progress_ids or allowed_ids
         if not allowed_ids:
             raise RuntimeError(
                 "Grammar deadlock: "
                 "The PDA rejected all possible next tokens."
             )
         return allowed_ids
+
+    def _is_structural_whitespace(self, token_id: int) -> bool:
+        """
+        True when the token is whitespace-only and would not advance the PDA.
+
+        Whitespace inside a string is string content (the active FSM consumes
+        it), so it must be preserved. Structural whitespace is optional in JSON
+        and is safe to skip.
+        """
+        text = self.token_to_decoded.get(token_id)
+        if not text or not text.isspace():
+            return False
+
+        fsm = self.pda.active_fsm
+        if fsm is None:
+            return True
+
+        first = text[0]
+        return fsm.terminates_on(first) or not fsm.accepts_char(first)
 
     def _select_next_token(
             self,

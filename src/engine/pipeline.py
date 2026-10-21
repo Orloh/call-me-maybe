@@ -133,6 +133,8 @@ class FunctionCallingPipeline:
         target_function = self.functions_by_name.get(selected_func_name)
 
         if not target_function:
+            # Defensive: the router grammar only offers catalog names, so this
+            # is reachable only with an empty catalog or an internal mismatch.
             logger.warning(
                 "No matching function for '%s'. Returning 'none'.",
                 selected_func_name
