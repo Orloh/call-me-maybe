@@ -2,6 +2,8 @@ from typing import Any
 
 
 class GenerationTracer:
+    """Prints per-token PDA/FSM state transitions when tracing is enabled."""
+
     def __init__(self, enabled: bool = False) -> None:
         self.enabled = enabled
 
@@ -27,6 +29,7 @@ class GenerationTracer:
             self.enabled = False
 
     def start_trace(self, prompt: str) -> None:
+        """Emits the trace header for a generation run."""
         if not self.enabled:
             return
         self._emit(
@@ -48,6 +51,7 @@ class GenerationTracer:
         fsm_after: Any,
         keys_left: int
     ) -> None:
+        """Emits one generation-step trace line."""
         if not self.enabled:
             return
         p_before = self._get_name(pda_before)
@@ -63,6 +67,7 @@ class GenerationTracer:
         )
 
     def end_trace(self) -> None:
+        """Emits the trace footer for a generation run."""
         if not self.enabled:
             return
         self._emit(

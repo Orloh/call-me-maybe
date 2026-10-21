@@ -56,6 +56,8 @@ class BaseFSM(ABC):
 
 
 class NumberState(Enum):
+    """States of the JSON number FSM."""
+
     START = auto()
     AFTER_MINUS = auto()  # Just saw "-", need digit
     AFTER_ZERO = auto()  # Just saw "0", need "."/terminator
@@ -199,6 +201,8 @@ class NumberFSM(BaseFSM):
 
 
 class StringState(Enum):
+    """States of the JSON string-literal FSM."""
+
     EXPECTING_OPEN_QUOTE = auto()
     INSIDE_STRING = auto()
     ESCAPE_SEQUENCE = auto()
@@ -298,6 +302,8 @@ class StringLiteralFSM(BaseFSM):
 
 
 class ExactMatchState(Enum):
+    """States of the exact-match FSM."""
+
     MATCHING = auto()
     TERMINAL = auto()
 

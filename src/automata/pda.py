@@ -58,6 +58,8 @@ class _Frame:
 
 
 class JSONPushdownAutomaton:
+    """Enforces JSON structure and the compiled schema with a frame stack."""
+
     WHITESPACE = frozenset(" \n\r\t")
 
     def __init__(self, compiled_schema: CompiledSchema) -> None:
@@ -203,6 +205,7 @@ class JSONPushdownAutomaton:
         return new
 
     def _handle_fsm_input(self, char: str) -> bool:
+        """Feeds a char to the active FSM and handles terminal hand-off."""
         if not self.active_fsm:
             return False
 
@@ -229,6 +232,7 @@ class JSONPushdownAutomaton:
         return False
 
     def _handle_structural_input(self, char: str) -> bool:
+        """Dispatches a structural char according to the PDA state."""
         match self.state:
             case PDAState.EXPECTING_OBJECT_START:
                 return self._on_object_start(char)

@@ -62,8 +62,14 @@ clean:
 lint:
 	@clear
 	@echo "$(BMAGENTA) Running standard linting...$(RESET)"
-	$(RUN) -m flake8 $(SRC)
-	$(RUN) -m mypy $(SRC)
+	$(RUN) -m flake8 .
+	$(RUN) -m mypy . --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs
+
+lint-strict:
+	@clear
+	@echo "$(BMAGENTA) Running strict linting...$(RESET)"
+	$(RUN) -m flake8 .
+	$(RUN) -m mypy . --strict
 
 
 # COLORS

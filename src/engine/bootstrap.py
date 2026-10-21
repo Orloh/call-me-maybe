@@ -36,6 +36,7 @@ def _vocab_cache_path(cache_dir: Path, vocab_path: str) -> Path | None:
 def _build_decoded_vocab(
     model: Small_LLM_Model, raw_vocab: dict[str, int]
 ) -> tuple[dict[str, int], dict[int, str]]:
+    """Decodes every vocab id and returns the two lookup maps."""
     decoded_vocab: dict[str, int] = {}
     token_to_decoded: dict[int, str] = {}
     for token_id in raw_vocab.values():
@@ -50,6 +51,7 @@ def _build_decoded_vocab(
 def _load_cached_vocab(
     cache_file: Path,
 ) -> tuple[dict[str, int], dict[int, str]] | None:
+    """Loads and validates a cached decoded-vocab map, or returns None."""
     try:
         data = json.loads(cache_file.read_text(encoding="utf-8"))
     except (OSError, ValueError):

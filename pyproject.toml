@@ -40,6 +40,18 @@ ignore_missing_imports = true
 disallow_untyped_defs = true
 check_untyped_defs = true
 mypy_path = "."
+# `mypy .` is the subject-mandated command; tests, scripts, and the vendored
+# SDK are excluded from the project lint gate.
+exclude = [
+    "^llm_sdk/",
+    "^tests/",
+    "^scripts/",
+    "^\\.venv/",
+    "^\\.cache/",
+    "^\\.hf_cache/",
+    "^\\.mypy_cache/",
+    "^\\.pytest_cache/",
+]
 
 # pylsp-mypy runs mypy through the dmypy daemon for responsiveness. The agent
 # always writes files to disk before diagnostics are requested, so live_mode's
