@@ -7,6 +7,8 @@ __pycache__/
 .venv/
 .hf_cache/
 .cache/
+moulinette/
+moulinette.zip
 data/output
 *.pdf
 *.pdf:Zone.Identifier

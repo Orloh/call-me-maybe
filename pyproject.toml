@@ -44,6 +44,7 @@ mypy_path = "."
 # SDK are excluded from the project lint gate.
 exclude = [
     "^llm_sdk/",
+    "^moulinette/",
     "^tests/",
     "^scripts/",
     "^\\.venv/",

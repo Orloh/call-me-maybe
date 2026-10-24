@@ -8,6 +8,7 @@ exclude =
     .hf_cache,
     .cache,
     llm_sdk,
+    moulinette,
     tests,
     scripts,
     plans,
