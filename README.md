@@ -223,11 +223,10 @@ On the 11-prompt test suite with Qwen/Qwen3-0.6B:
 All 11 prompts are correct. The `fn_reverse_string` case is handled by a
 scoped extraction instruction and example that are added only for functions
 with a single string parameter, so the model extracts the argument instead of
-computing the result. The official moulinette validates both exercise sets at
-100%: **11/11 public** and **11/11 private**. CPU-only runs are slower because
-the model has no KV cache. This table covers the main suite; the adversarial
-edge fixtures show lower semantic accuracy while remaining 100% schema-valid
-(see Testing Strategy).
+computing the result. CPU-only runs are slower because the model has no KV
+cache. This table covers the main suite; the adversarial edge fixtures show
+lower semantic accuracy while remaining 100% schema-valid (see Testing
+Strategy).
 
 ## Challenges Faced
 
@@ -289,20 +288,6 @@ Every output remained schema-valid JSON. The failures are model-level:
 omitted regex brackets (`0-9+` instead of `[0-9]+`), complex
 whitespace/newline prompts, a double-quoted reverse prompt, and literal text
 containing regex metacharacters. The main 11-prompt suite remains 11/11.
-
-### Moulinette Validation
-
-The provided moulinette was used as an external end-to-end check
-(`prepare_exercises` → run the CLI on the generated inputs →
-`grade_student_answers`):
-
-| Set | Score |
-|---|---|
-| public | 11/11 (100%) |
-| private | 11/11 (100%) |
-
-The private set exercises integer and boolean parameters, decimal compound
-interest, SQL strings, backslash paths, and template braces/quotes.
 
 ### Invariant Tests
 
