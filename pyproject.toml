@@ -29,10 +29,8 @@ markers = [
     "benchmark: performance measurement tests (opt-in via pytest -m benchmark)",
 ]
 
-# Single source of truth for the mypy gate (`make lint`) AND the opencode LSP
-# (pylsp + pylsp-mypy). Previously these flags lived on the Makefile CLI, which
-# no language server can read. `mypy_path = "."` lets `from src.*` resolve when
-# the LSP runs mypy from the workspace root.
+# Single source of truth for the mypy gate (`make lint`). `mypy_path = "."`
+# lets `from src.*` resolve when mypy runs from the workspace root.
 [tool.mypy]
 warn_return_any = true
 warn_unused_ignores = true
@@ -40,25 +38,17 @@ ignore_missing_imports = true
 disallow_untyped_defs = true
 check_untyped_defs = true
 mypy_path = "."
-# `mypy .` is the subject-mandated command; tests, scripts, and the vendored
-# SDK are excluded from the project lint gate.
+# `mypy .` is the subject-mandated command; tests and the vendored SDK are
+# excluded from the project lint gate.
 exclude = [
     "^llm_sdk/",
     "^tests/",
-    "^scripts/",
     "^\\.venv/",
     "^\\.cache/",
     "^\\.hf_cache/",
     "^\\.mypy_cache/",
     "^\\.pytest_cache/",
 ]
-
-# pylsp-mypy runs mypy through the dmypy daemon for responsiveness. The agent
-# always writes files to disk before diagnostics are requested, so live_mode's
-# unsaved-buffer support is unnecessary.
-[tool.pylsp.plugins.pylsp_mypy]
-dmypy = true
-report_progress = true
 
 # llm_sdk is a local editable package but is treated as third-party for
 # linting purposes: it is excluded from flake8 (src-only) and mypy below.

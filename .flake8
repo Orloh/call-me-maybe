@@ -9,7 +9,5 @@ exclude =
     .cache,
     llm_sdk,
     tests,
-    scripts,
-    plans,
     data
 max-line-length = 79
