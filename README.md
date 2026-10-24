@@ -224,7 +224,9 @@ All 11 prompts are correct. The `fn_reverse_string` case is handled by a
 scoped extraction instruction and example that are added only for functions
 with a single string parameter, so the model extracts the argument instead of
 computing the result. CPU-only runs are slower because the model has no KV
-cache.
+cache. This table covers the main suite; the adversarial edge fixtures show
+lower semantic accuracy while remaining 100% schema-valid (see Testing
+Strategy).
 
 ## Challenges Faced
 
@@ -270,6 +272,23 @@ the numeric cases extracting rather than computing.
 - Synthetic vocab e2e: scripted model with deterministic token ids to verify the full pipeline (trie → DFS → PDA → generator → decode)
 - Real vocab benchmark: same pipeline with the actual 151k-token Qwen vocab (marked as benchmark, excluded from default suite)
 
+### Adversarial Fixtures
+
+Beyond pytest, the `data/input/edge_*.json` fixtures were run manually against
+the real model:
+
+| Fixture | Schema valid | Semantically correct |
+|---|---|---|
+| `edge_arrays` | 5/5 | 3/5 |
+| `edge_objects` | 2/2 | 2/2 |
+| `edge_regex_sandbox` | 5/5 | 2/5 |
+| `edge_special_chars` | 5/5 | 3/5 |
+
+Every output remained schema-valid JSON. The failures are model-level:
+omitted regex brackets (`0-9+` instead of `[0-9]+`), complex
+whitespace/newline prompts, a double-quoted reverse prompt, and literal text
+containing regex metacharacters. The main 11-prompt suite remains 11/11.
+
 ### Invariant Tests
 
 `test_automata_predicates.py` verifies the core invariant: `pda.accepts_char(c) == pda.clone().advance(c)` for every FSM and the PDA, ensuring the DFS mask stays in sync with the advance logic.
@@ -302,6 +321,19 @@ pytest -m benchmark -s        # run benchmarks opt-in
   survives (`decoded_vocab` is last-wins). This does not affect JSON
   validity, but a fully correct treatment of multi-byte characters requires
   a byte-aware trie that tracks partial UTF-8 state, which is out of scope.
+- **Regex extraction on adversarial prompts is best-effort.** The model
+  sometimes drops the brackets in a character class (`0-9+` instead of
+  `[0-9]+`), mishandles whitespace/newline literals, or does not escape
+  regex metacharacters in a literal string. The 11-prompt suite passes, but
+  these edge cases can produce semantically wrong (yet valid) parameters.
+- **Out-of-catalog prompts are best-guess routed.** Because the router only
+  offers real functions, a prompt that matches no available function is still
+  routed to the closest one (and may then extract nonsense). `none` is
+  reserved for prompts that could not be processed at all.
+- **Double-quoted reverse prompts can still be reversed.** The
+  transform-aware extraction guidance is a prompt-level mitigation. It
+  reliably extracts verbatim for the main suite (single quotes) but the model
+  can still compute the reversal for some double-quoted phrasings.
 
 ## Resources
 
