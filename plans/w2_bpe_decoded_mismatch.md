@@ -209,7 +209,7 @@ def test_decoded_trie_no_raw_bpe_chars() -> None:
     assert b"\xc4\xa0".decode("utf-8") not in _collect_trie_chars(trie)
 ```
 
-### Phase 7: Update AGENTS.md
+### Phase 7: Update the project documentation
 
 **Changes**:
 1. Remove W2 from "Known Limitations"
@@ -260,7 +260,7 @@ If the fix introduces unexpected behavior:
 1. Revert `bootstrap.py` to building trie from raw vocab
 2. Remove `token_to_decoded` parameter from generator/pipeline
 3. Restore `model.decode()` in the generator loop
-4. Revert AGENTS.md changes
+4. Revert the documentation changes
 
 This only takes effect after a restart (the trie is built once at startup), so there's no risk of corrupting state mid-run.
 
@@ -273,5 +273,5 @@ This only takes effect after a restart (the trie is built once at startup), so t
 3. `src/engine/bootstrap.py` — build decoded mapping, build decoded trie
 4. `src/__main__.py` — adapt to new return signature
 5. Update tests
-6. Remove W2 from AGENTS.md Known Limitations
+6. Remove W2 from the Known Limitations section
 7. Run full lint + test suite

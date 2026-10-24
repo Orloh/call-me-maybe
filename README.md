@@ -351,7 +351,7 @@ AI was used throughout this project for:
   clone-storm in `src/dfs/dfs.py`
 - Reviewing the constrained-decoding design (`src/automata`, `src/trie`,
   `src/dfs`) and the error-handling code in `src/app.py` / `src/io_manager.py`
-- Writing and polishing this README and `AGENTS.md`
+- Writing and polishing this README
 - Generating edge-case tests under `tests/`
 
 All AI-generated code was reviewed, tested, and understood before being committed. Peer review was conducted regularly to validate design decisions and catch blind spots.
