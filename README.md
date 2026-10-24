@@ -223,10 +223,11 @@ On the 11-prompt test suite with Qwen/Qwen3-0.6B:
 All 11 prompts are correct. The `fn_reverse_string` case is handled by a
 scoped extraction instruction and example that are added only for functions
 with a single string parameter, so the model extracts the argument instead of
-computing the result. CPU-only runs are slower because the model has no KV
-cache. This table covers the main suite; the adversarial edge fixtures show
-lower semantic accuracy while remaining 100% schema-valid (see Testing
-Strategy).
+computing the result. The official moulinette validates both exercise sets at
+100%: **11/11 public** and **11/11 private**. CPU-only runs are slower because
+the model has no KV cache. This table covers the main suite; the adversarial
+edge fixtures show lower semantic accuracy while remaining 100% schema-valid
+(see Testing Strategy).
 
 ## Challenges Faced
 
@@ -242,7 +243,7 @@ The trie must be built from the tokenizer's **decoded** token strings (with `Ġ`
 
 ### Regex Overgeneralization
 
-The model was generating `[0-9]+` for every regex field, even for literal word substitutions (e.g., replacing `'cat'` → `[0-9]+`). Fixed by adding explicit generic regex rules to the extraction prompt: class-based patterns for numbers/vowels/whitespace, and the literal quoted word for specific substitutions.
+The model was generating `[0-9]+` for every regex field, even for literal word substitutions (e.g., replacing `'cat'` → `[0-9]+`). Fixed by adding explicit generic regex rules plus catalog-derived class/literal examples (numbers, vowels, and a literal word) to the extraction prompt.
 
 ### Reverse/Sqrt Computation
 
@@ -288,6 +289,20 @@ Every output remained schema-valid JSON. The failures are model-level:
 omitted regex brackets (`0-9+` instead of `[0-9]+`), complex
 whitespace/newline prompts, a double-quoted reverse prompt, and literal text
 containing regex metacharacters. The main 11-prompt suite remains 11/11.
+
+### Moulinette Validation
+
+The provided moulinette was used as an external end-to-end check
+(`prepare_exercises` → run the CLI on the generated inputs →
+`grade_student_answers`):
+
+| Set | Score |
+|---|---|
+| public | 11/11 (100%) |
+| private | 11/11 (100%) |
+
+The private set exercises integer and boolean parameters, decimal compound
+interest, SQL strings, backslash paths, and template braces/quotes.
 
 ### Invariant Tests
 
